@@ -45,12 +45,10 @@ export default function AdminDashboard() {
     fetchDashboardStats();
   }, []);
 
- const handleLogout = () => {
+const handleLogout = () => {
   logout();
   navigate('/admin/login');
 };
-};
-  };
 
   const currentHour = new Date().getHours();
   const greeting = currentHour < 12 ? 'Good morning' : currentHour < 18 ? 'Good afternoon' : 'Good evening';
