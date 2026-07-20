@@ -1,0 +1,185 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  overflow-x: clip;
+  -webkit-font-smoothing: antialiased;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+@layer base {
+  :root {
+    /* Light Luxury Hotel Theme */
+    --background: 0 0% 100%;
+    --foreground: 222 47% 11%;
+
+    /* Luxury Gold Accent */
+    --primary: 43 74% 55%;
+    --primary-foreground: 222 47% 11%;
+
+    /* Light Gray Secondary */
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222 47% 11%;
+
+    /* Gold Accent */
+    --accent: 43 74% 55%;
+    --accent-foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 43 74% 55%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 98%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 98%;
+
+    --radius: 0.75rem;
+
+    /* Calendar State Tokens */
+    --calendar-available: 142 71% 45%;
+    --calendar-closed: 0 84.2% 60.2%;
+    --calendar-recurring: 38 92% 50%;
+
+    /* Review System & Analytics Tokens */
+    --star-filled: 43 74% 55%;
+    --star-empty: 214.3 31.8% 91.4%;
+    
+    --analytics-good: 142 71% 45%;
+    --analytics-warning: 38 92% 50%;
+    --analytics-poor: 0 84.2% 60.2%;
+
+    --chart-1: 43 74% 55%;
+    --chart-2: 222 47% 11%;
+    --chart-3: 180 40% 65%;
+    --chart-4: 340 60% 65%;
+    --chart-5: 25 80% 65%;
+
+    /* Phone Prominent Styling */
+    --phone-color: 0 0% 100%;
+    --phone-bg: 0 84.2% 60.2%;
+    --phone-size: 1.125rem;
+    --phone-weight: 700;
+    
+    /* Eye-catching highlight color for direct actions */
+    --phone-highlight: 12 100% 50%;
+  }
+
+  .dark {
+    /* Admin/Dark Theme */
+    --background: 222 47% 7%;
+    --foreground: 210 40% 98%;
+    --primary: 43 74% 55%;
+    --primary-foreground: 222 47% 11%;
+    --secondary: 215 25% 20%;
+    --secondary-foreground: 210 40% 98%;
+    --accent: 43 74% 55%;
+    --accent-foreground: 222 47% 11%;
+    --card: 222 47% 9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222 47% 9%;
+    --popover-foreground: 210 40% 98%;
+    --muted: 216 34% 15%;
+    --muted-foreground: 215 20% 65%;
+    --border: 216 34% 17%;
+    --input: 216 34% 17%;
+    --ring: 43 74% 55%;
+    --destructive: 0 62% 30%;
+    --destructive-foreground: 210 40% 98%;
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 98%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 98%;
+    --star-empty: 216 34% 17%;
+    --phone-highlight: 12 100% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    text-wrap: balance;
+    font-family: 'Playfair Display', serif;
+    letter-spacing: -0.02em;
+    @apply text-foreground;
+  }
+}
+
+@layer components {
+  /* Price Badge Overlay for Room Cards */
+  .price-badge-overlay {
+    @apply absolute bottom-4 right-4 bg-black/80 backdrop-blur-md px-4 py-2 rounded-xl text-white shadow-xl border border-white/20 flex items-baseline gap-1.5 z-20 transition-transform duration-300;
+  }
+  .price-badge-amount {
+    @apply font-bold text-lg tracking-tight;
+  }
+  .price-badge-period {
+    @apply text-xs font-medium text-white/70 tracking-wider lowercase;
+  }
+
+  /* Prominent Phone Button */
+  .phone-prominent {
+    color: hsl(var(--phone-color));
+    background-color: hsl(var(--phone-bg));
+    font-size: var(--phone-size);
+    font-weight: var(--phone-weight);
+    @apply flex items-center justify-center gap-2 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  
+  .star-filled {
+    color: hsl(var(--star-filled));
+    fill: hsl(var(--star-filled));
+  }
+  .star-empty {
+    color: hsl(var(--star-empty));
+    fill: hsl(var(--star-empty));
+  }
+
+  .text-analytics-good { color: hsl(var(--analytics-good)); }
+  .text-analytics-warning { color: hsl(var(--analytics-warning)); }
+  .text-analytics-poor { color: hsl(var(--analytics-poor)); }
+  .bg-analytics-good { background-color: hsl(var(--analytics-good)); }
+  .bg-analytics-warning { background-color: hsl(var(--analytics-warning)); }
+  .bg-analytics-poor { background-color: hsl(var(--analytics-poor)); }
+
+  /* Blinking Animation */
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+  
+  .animate-blink {
+    animation: blink 1s ease-in-out infinite;
+  }
+}
