@@ -10,7 +10,7 @@ import { useAdminAuth } from '@/contexts/AdminAuthContext.jsx';
 import apiServerClient from '@/lib/apiServerClient.js';
 
 export default function AdminDashboard() {
-  const { adminUser, adminLogout } = useAdminAuth();
+ const { currentUser, logout } = useAdminAuth();
   const navigate = useNavigate();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -45,9 +45,11 @@ export default function AdminDashboard() {
     fetchDashboardStats();
   }, []);
 
-  const handleLogout = () => {
-    adminLogout();
-    navigate('/admin-login');
+ const handleLogout = () => {
+  logout();
+  navigate('/admin/login');
+};
+};
   };
 
   const currentHour = new Date().getHours();
@@ -62,7 +64,7 @@ export default function AdminDashboard() {
       <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold font-serif text-foreground tracking-tight">
-            {greeting}, {adminUser?.name?.split(' ')[0] || 'Administrator'}
+           {greeting}, {currentUser?.name?.split(' ')[0] || 'Administrator'}
           </h1>
           <p className="text-muted-foreground mt-1">Here is what's happening at the hotel today.</p>
         </div>
