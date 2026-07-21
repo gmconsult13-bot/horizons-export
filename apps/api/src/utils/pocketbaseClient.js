@@ -1,84 +1,136 @@
-import Pocketbase from 'pocketbase';
+import PocketBase from 'pocketbase';
 import logger from './logger.js';
 
-const POCKETBASE_HOST = `http://localhost:8090`;
+const POCKETBASE_URL =
+    process.env.POCKETBASE_URL?.trim() ||
+    process.env.PB_URL?.trim() ||
+    'http://127.0.0.1:8090';
 
-async function waitForHealth({ retries = 10, delayMs = 1000 } = {}) {
-    for (let i = 1; i <= retries; i++) {
-        try {
-            const response = await fetch(`${POCKETBASE_HOST}/api/health`, { method: 'HEAD' });
+const SUPERUSER_EMAIL = process.env.PB_SUPERUSER_EMAIL?.trim();
+const SUPERUSER_PASSWORD = process.env.PB_SUPERUSER_PASSWORD;
 
-            if (response.ok) {
-                return;
-            }
-        } catch {
-            // PocketBase not reachable yet; retry below
-        }
-
-        logger.warn(`PocketBase not ready, retrying (${i}/${retries})...`);
-
-        await new Promise((r) => setTimeout(r, delayMs));
-    }
-
-    throw new Error(`PocketBase health check failed after ${retries} retries`);
-}
-
-const pocketbaseClient = new Pocketbase(POCKETBASE_HOST);
+const pocketbaseClient = new PocketBase(POCKETBASE_URL);
 
 pocketbaseClient.autoCancellation(false);
 
-let authPromise = null;
+let authenticationPromise = null;
 
-pocketbaseClient.beforeSend = async function (url, options) {
-    if (url.includes('/api/collections/_superusers/auth-with-password')) {
-        return { url, options };
+const delay = (milliseconds) =>
+    new Promise((resolve) => setTimeout(resolve, milliseconds));
+
+async function waitForPocketBase({
+    retries = 10,
+    delayMs = 1000,
+} = {}) {
+    for (let attempt = 1; attempt <= retries; attempt += 1) {
+        try {
+            const response = await fetch(`${POCKETBASE_URL}/api/health`, {
+                method: 'GET',
+                signal: AbortSignal.timeout(5000),
+            });
+
+            if (response.ok) {
+                logger.info(`PocketBase is available at ${POCKETBASE_URL}`);
+                return true;
+            }
+
+            logger.warn(
+                `PocketBase health check returned HTTP ${response.status} ` +
+                `(${attempt}/${retries})`,
+            );
+        } catch (error) {
+            logger.warn(
+                `PocketBase not reachable at ${POCKETBASE_URL} ` +
+                `(${attempt}/${retries}): ${error.message}`,
+            );
+        }
+
+        if (attempt < retries) {
+            await delay(delayMs);
+        }
     }
 
-    if (!pocketbaseClient.authStore.isValid && !authPromise) {
-        authPromise = pocketbaseClient.collection('_superusers').authWithPassword(
-            process.env.PB_SUPERUSER_EMAIL,
-            process.env.PB_SUPERUSER_PASSWORD,
-        ).finally(() => {
-            authPromise = null;
-        });
+    return false;
+}
+
+async function authenticateSuperuser() {
+    if (pocketbaseClient.authStore.isValid) {
+        return true;
     }
 
-    if (authPromise) {
-        await authPromise;
+    if (!SUPERUSER_EMAIL || !SUPERUSER_PASSWORD) {
+        logger.error(
+            'PocketBase superuser credentials are missing. ' +
+            'Set PB_SUPERUSER_EMAIL and PB_SUPERUSER_PASSWORD in apps/api/.env.',
+        );
+
+        return false;
     }
 
-    if (pocketbaseClient.authStore.isValid && pocketbaseClient.authStore.token) {
-        options.headers = options.headers || {};
-        options.headers['Authorization'] = pocketbaseClient.authStore.token;
+    if (!authenticationPromise) {
+        authenticationPromise = pocketbaseClient
+            .collection('_superusers')
+            .authWithPassword(SUPERUSER_EMAIL, SUPERUSER_PASSWORD)
+            .then(() => {
+                logger.info('PocketBase superuser authenticated successfully');
+                return true;
+            })
+            .catch((error) => {
+                pocketbaseClient.authStore.clear();
+
+                logger.error(
+                    `PocketBase superuser authentication failed: ${
+                        error?.response?.message ||
+                        error?.message ||
+                        'Unknown authentication error'
+                    }`,
+                );
+
+                return false;
+            })
+            .finally(() => {
+                authenticationPromise = null;
+            });
     }
 
-    return { url, options };
+    return authenticationPromise;
+}
+
+async function initializePocketBase() {
+    const isAvailable = await waitForPocketBase();
+
+    if (!isAvailable) {
+        logger.error(
+            `PocketBase could not be reached at ${POCKETBASE_URL}. ` +
+            'The API will stay running, but database operations will fail ' +
+            'until PocketBase becomes available.',
+        );
+
+        return false;
+    }
+
+    return authenticateSuperuser();
+}
+
+/*
+ * Authenticate once when the API starts.
+ *
+ * We deliberately do not use process.exit(1) here. A temporary PocketBase
+ * problem should not immediately terminate the complete API process.
+ */
+initializePocketBase().catch((error) => {
+    logger.error(
+        `Unexpected PocketBase initialization error: ${
+            error?.message || error
+        }`,
+    );
+});
+
+export {
+    authenticateSuperuser,
+    initializePocketBase,
+    pocketbaseClient,
+    POCKETBASE_URL,
 };
 
-(async () => {
-    try {
-        await waitForHealth();
-
-        if (!pocketbaseClient.authStore.isValid && !authPromise) {
-            authPromise = pocketbaseClient.collection('_superusers').authWithPassword(
-                process.env.PB_SUPERUSER_EMAIL,
-                process.env.PB_SUPERUSER_PASSWORD,
-            ).finally(() => {
-                authPromise = null;
-            });
-        }
-        
-        if (authPromise) {
-            await authPromise;
-        }
-        
-        logger.info('PocketBase client initialized successfully');
-    } catch (err) {
-        logger.error('Failed to initialize PocketBase client:', err);
-
-        process.exit(1);
-    }
-})();
-
 export default pocketbaseClient;
-export { pocketbaseClient };
