@@ -1,64 +1,144 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+} from 'react';
 import pb from '@/lib/pocketbaseClient.js';
 
-const GuestAuthContext = createContext();
+const GuestAuthContext = createContext(null);
 
 export const GuestAuthProvider = ({ children }) => {
-  const [currentGuest, setCurrentGuest] = useState(pb.authStore.model);
+  const [currentGuest, setCurrentGuest] = useState(
+    pb.authStore.record || pb.authStore.model || null,
+  );
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    setCurrentGuest(pb.authStore.model);
-    
-    // Subscribe to PocketBase auth state changes
-    const unsub = pb.authStore.onChange((token, model) => {
-      setCurrentGuest(model);
-    });
-    
+    const unsubscribe = pb.authStore.onChange(
+      (_token, record) => {
+        setCurrentGuest(record || null);
+      },
+      true,
+    );
+
     setIsLoading(false);
-    return () => unsub();
+
+    return unsubscribe;
   }, []);
 
   const login = async (email, password) => {
+    const normalizedEmail = email.trim().toLowerCase();
+
     try {
-      console.log('[GuestAuth] Attempting login for:', email);
-      const authData = await pb.collection('guests').authWithPassword(email, password, { $autoCancel: false });
-      console.log('[GuestAuth] Login successful.');
+      const authData = await pb
+        .collection('guests')
+        .authWithPassword(normalizedEmail, password, {
+          $autoCancel: false,
+        });
+
+      if (authData.record?.verified !== true) {
+        pb.authStore.clear();
+
+        const error = new Error(
+          'Please verify your email address before logging in.',
+        );
+
+        error.code = 'EMAIL_NOT_VERIFIED';
+        throw error;
+      }
+
       return authData;
     } catch (error) {
-      console.error('[GuestAuth] Login failed:', error.response || error);
+      if (error?.code === 'EMAIL_NOT_VERIFIED') {
+        throw error;
+      }
+
+      pb.authStore.clear();
       throw error;
     }
   };
 
-  const register = async (email, password, phone) => {
-    try {
-      console.log('[GuestAuth] Attempting to create guest record...');
-      
-      // Ensure all required fields including emailVerified are passed to prevent schema issues
-      const payload = {
-        email,
+  const register = async ({
+    email,
+    password,
+    passwordConfirm,
+    phone,
+  }) => {
+    const normalizedEmail = email.trim().toLowerCase();
+
+    const record = await pb.collection('guests').create(
+      {
+        email: normalizedEmail,
         password,
-        passwordConfirm: password,
-        phone,
-        emailVerified: false,
-        email_verified: false
-      };
-      
-      console.log('[GuestAuth] Registration payload:', { 
-        ...payload, 
-        password: '[REDACTED]', 
-        passwordConfirm: '[REDACTED]' 
+        passwordConfirm,
+        phone: phone.trim(),
+        emailVisibility: false,
+      },
+      {
+        $autoCancel: false,
+      },
+    );
+
+    await pb
+      .collection('guests')
+      .requestVerification(normalizedEmail, {
+        $autoCancel: false,
       });
 
-      const record = await pb.collection('guests').create(payload, { $autoCancel: false });
-      console.log('[GuestAuth] Guest record created successfully with ID:', record.id);
-      
-      return record;
-    } catch (error) {
-      console.error('[GuestAuth] Registration failed:', error.response || error);
-      throw error;
+    return record;
+  };
+
+  const resendVerification = async (email) => {
+    const normalizedEmail = email.trim().toLowerCase();
+
+    return pb
+      .collection('guests')
+      .requestVerification(normalizedEmail, {
+        $autoCancel: false,
+      });
+  };
+
+  const confirmEmailVerification = async (token) => {
+    if (!token) {
+      throw new Error('The verification token is missing.');
     }
+
+    return pb.collection('guests').confirmVerification(
+      token,
+      {
+        $autoCancel: false,
+      },
+    );
+  };
+
+  const requestPasswordReset = async (email) => {
+    const normalizedEmail = email.trim().toLowerCase();
+
+    return pb
+      .collection('guests')
+      .requestPasswordReset(normalizedEmail, {
+        $autoCancel: false,
+      });
+  };
+
+  const confirmPasswordReset = async (
+    token,
+    password,
+    passwordConfirm,
+  ) => {
+    if (!token) {
+      throw new Error('The password-reset token is missing.');
+    }
+
+    return pb.collection('guests').confirmPasswordReset(
+      token,
+      password,
+      passwordConfirm,
+      {
+        $autoCancel: false,
+      },
+    );
   };
 
   const logout = () => {
@@ -66,21 +146,39 @@ export const GuestAuthProvider = ({ children }) => {
     setCurrentGuest(null);
   };
 
-  // We consider them a guest if they are authenticated and belong to the 'guests' collection
-  const isGuestAuthenticated = pb.authStore.isValid && currentGuest?.collectionName === 'guests';
+  const isGuestAuthenticated =
+    pb.authStore.isValid &&
+    currentGuest?.collectionName === 'guests' &&
+    currentGuest?.verified === true;
 
   return (
-    <GuestAuthContext.Provider value={{ 
-      currentGuest, 
-      isGuestAuthenticated, 
-      isLoading,
-      login, 
-      register, 
-      logout 
-    }}>
+    <GuestAuthContext.Provider
+      value={{
+        currentGuest,
+        isGuestAuthenticated,
+        isLoading,
+        login,
+        register,
+        logout,
+        resendVerification,
+        requestPasswordReset,
+        confirmPasswordReset,
+        confirmEmailVerification,
+      }}
+    >
       {children}
     </GuestAuthContext.Provider>
   );
 };
 
-export const useGuestAuth = () => useContext(GuestAuthContext);
+export const useGuestAuth = () => {
+  const context = useContext(GuestAuthContext);
+
+  if (!context) {
+    throw new Error(
+      'useGuestAuth must be used inside GuestAuthProvider',
+    );
+  }
+
+  return context;
+};
