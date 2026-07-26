@@ -158,17 +158,92 @@ export default function GuestRegistrationPage() {
       );
 
       const errorData =
-        error?.response?.data;
+        error?.response?.data || {};
+
+      const emailMessage =
+        errorData?.email?.message || '';
+
+      const phoneMessage =
+        errorData?.phone?.message || '';
+
+      const emailAlreadyExists =
+        emailMessage.toLowerCase().includes('unique') ||
+        emailMessage.toLowerCase().includes('already');
+
+      const phoneAlreadyExists =
+        phoneMessage.toLowerCase().includes('unique') ||
+        phoneMessage.toLowerCase().includes('already');
+
+      if (
+        emailAlreadyExists &&
+        phoneAlreadyExists
+      ) {
+        setErrors({
+          email:
+            'This email address is already registered.',
+          phone:
+            'This phone number is already registered.',
+        });
+
+        toast.error(
+          'Account already exists',
+          {
+            description:
+              'An account with this email address and phone number already exists. Please log in instead.',
+            action: {
+              label: 'Log in',
+              onClick: () =>
+                navigate('/login'),
+            },
+          },
+        );
+
+        return;
+      }
+
+      if (emailAlreadyExists) {
+        setErrors({
+          email:
+            'This email address is already registered.',
+        });
+
+        toast.error(
+          'Email already registered',
+          {
+            description:
+              'An account with this email already exists. Please log in or use the forgot password option.',
+            action: {
+              label: 'Log in',
+              onClick: () =>
+                navigate('/login'),
+            },
+          },
+        );
+
+        return;
+      }
+
+      if (phoneAlreadyExists) {
+        setErrors({
+          phone:
+            'This phone number is already registered.',
+        });
+
+        toast.error(
+          'Phone number already registered',
+          {
+            description:
+              'Please use another phone number or contact the hotel for assistance.',
+          },
+        );
+
+        return;
+      }
 
       let errorMessage =
         'Registration could not be completed. Please try again.';
 
-      if (errorData?.email?.message) {
-        errorMessage =
-          errorData.email.message;
-      } else if (
-        errorData?.password?.message
-      ) {
+      if (errorData?.password?.message) {
         errorMessage =
           errorData.password.message;
       } else if (
@@ -176,11 +251,6 @@ export default function GuestRegistrationPage() {
       ) {
         errorMessage =
           errorData.passwordConfirm.message;
-      } else if (
-        errorData?.phone?.message
-      ) {
-        errorMessage =
-          errorData.phone.message;
       } else if (
         error?.response?.message
       ) {

@@ -9,7 +9,7 @@ import ProtectedAdminRoute from '@/components/ProtectedAdminRoute.jsx';
 import ProtectedGuestRoute from '@/components/ProtectedGuestRoute.jsx';
 import ScrollToTop from '@/components/ScrollToTop.jsx';
 import FacebookPixel from '@/components/FacebookPixel.jsx';
-
+import GuestLayout from '@/components/GuestLayout.jsx';
 // Public Pages
 import HomePage from '@/pages/HomePage.jsx';
 import RoomsPage from '@/pages/RoomsPage.jsx';
