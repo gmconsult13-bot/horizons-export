@@ -38,10 +38,7 @@ pocketBase.on('error', (error) => {
 });
 
 pocketBase.on('exit', (code, signal) => {
-	if (signal) {
-		process.kill(process.pid, signal);
-		return;
-	}
-
-	process.exit(code ?? 1);
+	console.error(
+		`PocketBase process exited (code: ${code ?? 'none'}, signal: ${signal ?? 'none'})`,
+	);
 });
