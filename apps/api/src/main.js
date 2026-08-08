@@ -2,6 +2,9 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { createProxyMiddleware } from 'http-proxy-middleware';
 
 import routes from './routes/index.js';
 import { errorMiddleware } from './middleware/error.js';
@@ -10,6 +13,12 @@ import logger from './utils/logger.js';
 import { BodyLimit } from './constants/common.js';
 
 const app = express();
+const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
+const webDistDirectory = path.resolve(currentDirectory, '../../web/dist');
+const pocketBaseUrl =
+	process.env.POCKETBASE_URL?.trim() ||
+	process.env.PB_URL?.trim() ||
+	'http://127.0.0.1:8090';
 
 app.set('trust proxy', true);
 
@@ -35,13 +44,28 @@ process.on('SIGTERM', async () => {
 	process.exit();
 });
 
-app.use(helmet());
+app.use(helmet({
+	// The existing site loads hotel images, analytics, and fonts from external
+	// providers. Keep their current behaviour while still applying Helmet's
+	// remaining security headers.
+	contentSecurityPolicy: false,
+}));
 app.use(cors({
 	origin: process.env.CORS_ORIGIN,
 	credentials: true,
 }));
 app.use(morgan('combined'));
 app.use(globalRateLimit);
+
+// Keep the public URLs used by the exported Horizons frontend. Mount this
+// before the body parsers so file uploads and other request streams reach
+// PocketBase unchanged.
+app.use('/hcgi/platform', createProxyMiddleware({
+	target: pocketBaseUrl,
+	changeOrigin: true,
+	ws: true,
+}));
+
 app.use(express.json({
 	limit: BodyLimit,
 }));
@@ -50,7 +74,19 @@ app.use(express.urlencoded({
 	limit: BodyLimit,
 }));
 
-app.use('/', routes());
+app.use('/hcgi/api', routes());
+
+app.use(express.static(webDistDirectory));
+
+// React Router routes such as /rooms and /admin/login must return index.html
+// when they are opened directly in the browser.
+app.use((req, res, next) => {
+	if (req.method === 'GET' && req.accepts('html')) {
+		return res.sendFile(path.join(webDistDirectory, 'index.html'));
+	}
+
+	return next();
+});
 
 app.use(errorMiddleware);
 
