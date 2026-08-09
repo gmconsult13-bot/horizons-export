@@ -1,7 +1,8 @@
 import 'dotenv/config';
 import express from 'express';
-import pb from '../utils/pocketbaseClient.js';
+import pb, { authenticateSuperuser } from '../utils/pocketbaseClient.js';
 import logger from '../utils/logger.js';
+import { authMiddleware, requireAdmin } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -31,9 +32,17 @@ router.get('/', async (req, res) => {
 });
 
 // PUT /room-allotments/:roomTypeId
-router.put('/:roomTypeId', async (req, res) => {
+router.put('/:roomTypeId', authMiddleware, requireAdmin, async (req, res) => {
   const { roomTypeId } = req.params;
   const { total_rooms } = req.body;
+
+  const isPocketBaseAuthenticated = await authenticateSuperuser();
+
+  if (!isPocketBaseAuthenticated) {
+    return res.status(503).json({
+      error: 'The database is temporarily unavailable. Please try again.',
+    });
+  }
 
   // Validate required fields
   if (total_rooms === undefined) {
