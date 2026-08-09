@@ -159,6 +159,21 @@ async function authenticateSuperuser() {
     return authenticationPromise;
 }
 
+async function createAuthenticatedSuperuserClient() {
+    if (!SUPERUSER_EMAIL || !SUPERUSER_PASSWORD) {
+        throw new Error('PocketBase superuser credentials are missing');
+    }
+
+    const client = new PocketBase(POCKETBASE_URL);
+    client.autoCancellation(false);
+
+    await client
+        .collection('_superusers')
+        .authWithPassword(SUPERUSER_EMAIL, SUPERUSER_PASSWORD);
+
+    return client;
+}
+
 async function initializePocketBase() {
     const isAvailable = await waitForPocketBase();
 
@@ -191,6 +206,7 @@ initializePocketBase().catch((error) => {
 
 export {
     authenticateSuperuser,
+    createAuthenticatedSuperuserClient,
     initializePocketBase,
     pocketbaseClient,
     POCKETBASE_URL,
