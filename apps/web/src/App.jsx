@@ -60,6 +60,7 @@ import RoomAvailabilityPage from '@/pages/admin/RoomAvailabilityPage.jsx';
 import AdminReviewsPage from '@/pages/admin/AdminReviewsPage.jsx';
 import ReviewsAnalyticsPage from '@/pages/admin/ReviewsAnalyticsPage.jsx';
 import GuestDealsManagement from '@/pages/admin/GuestDealsManagement.jsx';
+import { AdminLayout } from '@/components/admin/AdminSidebar.jsx';
 
 import { Toaster } from '@/components/ui/sonner';
 
@@ -114,8 +115,8 @@ function App() {
                 <Route path="/admin" element={<ProtectedAdminRoute><AdminDashboard /></ProtectedAdminRoute>} />
                 <Route path="/admin/dashboard" element={<ProtectedAdminRoute><AdminDashboard /></ProtectedAdminRoute>} />
                 <Route path="/admin/rooms" element={<ProtectedAdminRoute><RoomManagement /></ProtectedAdminRoute>} />
-                <Route path="/admin/room-allotments" element={<ProtectedAdminRoute><RoomAllotmentsPage /></ProtectedAdminRoute>} />
-                <Route path="/admin/room-availability" element={<ProtectedAdminRoute><RoomAvailabilityPage /></ProtectedAdminRoute>} />
+                <Route path="/admin/room-allotments" element={<ProtectedAdminRoute><AdminLayout><RoomAllotmentsPage /></AdminLayout></ProtectedAdminRoute>} />
+                <Route path="/admin/room-availability" element={<ProtectedAdminRoute><AdminLayout><RoomAvailabilityPage /></AdminLayout></ProtectedAdminRoute>} />
                 <Route path="/admin/seasons" element={<ProtectedAdminRoute><SeasonManagement /></ProtectedAdminRoute>} />
                 <Route path="/admin/prices" element={<ProtectedAdminRoute><PriceManagement /></ProtectedAdminRoute>} />
                 <Route path="/admin/children-surcharges" element={<ProtectedAdminRoute><ChildrenSurchargesManagement /></ProtectedAdminRoute>} />
@@ -125,9 +126,9 @@ function App() {
                 <Route path="/admin/dining" element={<ProtectedAdminRoute><DiningManagement /></ProtectedAdminRoute>} />
                 <Route path="/admin/gallery" element={<ProtectedAdminRoute><GalleryManagement /></ProtectedAdminRoute>} />
                 <Route path="/admin/guests" element={<ProtectedAdminRoute><GuestDatabase /></ProtectedAdminRoute>} />
-                <Route path="/admin/reviews" element={<ProtectedAdminRoute><AdminReviewsPage /></ProtectedAdminRoute>} />
-                <Route path="/admin/reviews-analytics" element={<ProtectedAdminRoute><ReviewsAnalyticsPage /></ProtectedAdminRoute>} />
-                <Route path="/admin/deals" element={<ProtectedAdminRoute><GuestDealsManagement /></ProtectedAdminRoute>} />
+                <Route path="/admin/reviews" element={<ProtectedAdminRoute><AdminLayout><AdminReviewsPage /></AdminLayout></ProtectedAdminRoute>} />
+                <Route path="/admin/reviews-analytics" element={<ProtectedAdminRoute><AdminLayout><ReviewsAnalyticsPage /></AdminLayout></ProtectedAdminRoute>} />
+                <Route path="/admin/deals" element={<ProtectedAdminRoute><AdminLayout><GuestDealsManagement /></AdminLayout></ProtectedAdminRoute>} />
                 
                 <Route path="*" element={<NotFound />} />
               </Routes>
