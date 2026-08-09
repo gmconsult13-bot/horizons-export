@@ -163,43 +163,9 @@ export default function GuestRegistrationPage() {
       const emailMessage =
         errorData?.email?.message || '';
 
-      const phoneMessage =
-        errorData?.phone?.message || '';
-
       const emailAlreadyExists =
         emailMessage.toLowerCase().includes('unique') ||
         emailMessage.toLowerCase().includes('already');
-
-      const phoneAlreadyExists =
-        phoneMessage.toLowerCase().includes('unique') ||
-        phoneMessage.toLowerCase().includes('already');
-
-      if (
-        emailAlreadyExists &&
-        phoneAlreadyExists
-      ) {
-        setErrors({
-          email:
-            'This email address is already registered.',
-          phone:
-            'This phone number is already registered.',
-        });
-
-        toast.error(
-          'Account already exists',
-          {
-            description:
-              'An account with this email address and phone number already exists. Please log in instead.',
-            action: {
-              label: 'Log in',
-              onClick: () =>
-                navigate('/login'),
-            },
-          },
-        );
-
-        return;
-      }
 
       if (emailAlreadyExists) {
         setErrors({
@@ -217,23 +183,6 @@ export default function GuestRegistrationPage() {
               onClick: () =>
                 navigate('/login'),
             },
-          },
-        );
-
-        return;
-      }
-
-      if (phoneAlreadyExists) {
-        setErrors({
-          phone:
-            'This phone number is already registered.',
-        });
-
-        toast.error(
-          'Phone number already registered',
-          {
-            description:
-              'Please use another phone number or contact the hotel for assistance.',
           },
         );
 
