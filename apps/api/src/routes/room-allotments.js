@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import express from 'express';
-import pb, { authenticateSuperuser } from '../utils/pocketbaseClient.js';
+import pb, { createAuthenticatedSuperuserClient } from '../utils/pocketbaseClient.js';
 import logger from '../utils/logger.js';
 import { authMiddleware, requireAdmin } from '../middleware/auth.js';
 
@@ -36,14 +36,6 @@ router.put('/:roomTypeId', authMiddleware, requireAdmin, async (req, res) => {
   const { roomTypeId } = req.params;
   const { total_rooms } = req.body;
 
-  const isPocketBaseAuthenticated = await authenticateSuperuser();
-
-  if (!isPocketBaseAuthenticated) {
-    return res.status(503).json({
-      error: 'The database is temporarily unavailable. Please try again.',
-    });
-  }
-
   // Validate required fields
   if (total_rooms === undefined) {
     return res.status(400).json({ error: 'total_rooms is required' });
@@ -54,7 +46,8 @@ router.put('/:roomTypeId', authMiddleware, requireAdmin, async (req, res) => {
   }
 
   // Fetch the room record
-  const room = await pb.collection('rooms').getOne(roomTypeId);
+  const adminClient = await createAuthenticatedSuperuserClient();
+  const room = await adminClient.collection('rooms').getOne(roomTypeId);
 
   // Calculate currently booked rooms
   const currentlyBooked = room.total_rooms - room.available_rooms;
@@ -68,7 +61,7 @@ router.put('/:roomTypeId', authMiddleware, requireAdmin, async (req, res) => {
   const newAvailableRooms = total_rooms - currentlyBooked;
 
   // Update the room record
-  const updatedRoom = await pb.collection('rooms').update(roomTypeId, {
+  const updatedRoom = await adminClient.collection('rooms').update(roomTypeId, {
     total_rooms: total_rooms,
     available_rooms: newAvailableRooms,
   });
