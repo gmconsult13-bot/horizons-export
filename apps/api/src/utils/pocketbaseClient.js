@@ -8,6 +8,8 @@ const POCKETBASE_URL =
 
 const SUPERUSER_EMAIL = process.env.PB_SUPERUSER_EMAIL?.trim();
 const SUPERUSER_PASSWORD = process.env.PB_SUPERUSER_PASSWORD;
+const BOOKING_ADMIN_EMAIL = process.env.BOOKING_ADMIN_EMAIL?.trim().toLowerCase();
+const BOOKING_ADMIN_PASSWORD = process.env.BOOKING_ADMIN_PASSWORD;
 
 const pocketbaseClient = new PocketBase(POCKETBASE_URL);
 
@@ -53,6 +55,67 @@ async function waitForPocketBase({
     return false;
 }
 
+async function findUserByEmail(email) {
+    const escapedEmail = email
+        .replaceAll('\\', '\\\\')
+        .replaceAll('"', '\\"');
+
+    try {
+        return await pocketbaseClient
+            .collection('users')
+            .getFirstListItem(`email = "${escapedEmail}"`);
+    } catch (error) {
+        if (error?.status === 404) {
+            return null;
+        }
+
+        throw error;
+    }
+}
+
+async function synchronizeProductionAdmin() {
+    if (!BOOKING_ADMIN_EMAIL || !BOOKING_ADMIN_PASSWORD) {
+        logger.error(
+            'Booking administrator credentials are missing. ' +
+            'Set BOOKING_ADMIN_EMAIL and BOOKING_ADMIN_PASSWORD in Hostinger.',
+        );
+
+        return false;
+    }
+
+    for (const prototypeEmail of ['admin@example.com', 'admin@hotel.com']) {
+        const prototypeUser = await findUserByEmail(prototypeEmail);
+
+        if (prototypeUser) {
+            await pocketbaseClient.collection('users').delete(prototypeUser.id);
+            logger.info(`Removed prototype administrator: ${prototypeEmail}`);
+        }
+    }
+
+    const existingAdmin = await findUserByEmail(BOOKING_ADMIN_EMAIL);
+    const adminData = {
+        email: BOOKING_ADMIN_EMAIL,
+        password: BOOKING_ADMIN_PASSWORD,
+        passwordConfirm: BOOKING_ADMIN_PASSWORD,
+        is_admin: true,
+        name: 'Raya Boutique Admin',
+        role: 'admin',
+        verified: true,
+    };
+
+    if (existingAdmin) {
+        await pocketbaseClient.collection('users').update(
+            existingAdmin.id,
+            adminData,
+        );
+    } else {
+        await pocketbaseClient.collection('users').create(adminData);
+    }
+
+    logger.info('Production booking administrator synchronized successfully');
+    return true;
+}
+
 async function authenticateSuperuser() {
     if (pocketbaseClient.authStore.isValid) {
         return true;
@@ -71,9 +134,9 @@ async function authenticateSuperuser() {
         authenticationPromise = pocketbaseClient
             .collection('_superusers')
             .authWithPassword(SUPERUSER_EMAIL, SUPERUSER_PASSWORD)
-            .then(() => {
+            .then(async () => {
                 logger.info('PocketBase superuser authenticated successfully');
-                return true;
+                return synchronizeProductionAdmin();
             })
             .catch((error) => {
                 pocketbaseClient.authStore.clear();
