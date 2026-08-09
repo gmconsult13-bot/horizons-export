@@ -2,6 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import PocketBase from 'pocketbase';
 import logger from '../utils/logger.js';
+import { createAuthenticatedSuperuserClient } from '../utils/pocketbaseClient.js';
 import {
   authMiddleware,
   requireAdmin,
@@ -13,6 +14,10 @@ const POCKETBASE_URL =
   process.env.POCKETBASE_URL?.trim() ||
   process.env.PB_URL?.trim() ||
   'http://127.0.0.1:8090';
+
+const BOOKING_ADMIN_EMAIL =
+  process.env.BOOKING_ADMIN_EMAIL?.trim().toLowerCase();
+const BOOKING_ADMIN_PASSWORD = process.env.BOOKING_ADMIN_PASSWORD;
 
 const publicUser = (user) => ({
   id: user.id,
@@ -83,6 +88,72 @@ router.post('/login', async (req, res) => {
     });
   } catch (error) {
     loginClient.authStore.clear();
+
+    /*
+     * A deployment can start while PocketBase is still becoming available,
+     * leaving the production administrator with its previous password. When
+     * the submitted credentials exactly match the protected Hostinger
+     * configuration, repair that single account and retry the login.
+     */
+    if (
+      email === BOOKING_ADMIN_EMAIL &&
+      password === BOOKING_ADMIN_PASSWORD
+    ) {
+      try {
+        const adminClient = await createAuthenticatedSuperuserClient();
+        const escapedEmail = email
+          .replaceAll('\\', '\\\\')
+          .replaceAll('"', '\\"');
+
+        let adminUser = null;
+
+        try {
+          adminUser = await adminClient
+            .collection('users')
+            .getFirstListItem(`email = "${escapedEmail}"`);
+        } catch (findError) {
+          if (findError?.status !== 404) throw findError;
+        }
+
+        const adminData = {
+          email,
+          password,
+          passwordConfirm: password,
+          is_admin: true,
+          name: 'Raya Boutique Admin',
+          role: 'admin',
+          verified: true,
+        };
+
+        if (adminUser) {
+          await adminClient.collection('users').update(adminUser.id, adminData);
+        } else {
+          await adminClient.collection('users').create(adminData);
+        }
+
+        const recoveredAuth = await loginClient
+          .collection('users')
+          .authWithPassword(email, password);
+
+        logger.info(
+          `Production administrator recovered and logged in: ${recoveredAuth.record.id}`,
+        );
+
+        return res.json({
+          success: true,
+          token: recoveredAuth.token,
+          user: publicUser(recoveredAuth.record),
+        });
+      } catch (recoveryError) {
+        logger.error(
+          `Production administrator recovery failed: ${
+            recoveryError?.response?.message ||
+            recoveryError?.message ||
+            'Unknown error'
+          }`,
+        );
+      }
+    }
 
     logger.warn(
       `Admin login failed for ${email}: ${
