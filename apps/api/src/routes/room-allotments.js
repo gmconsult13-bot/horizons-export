@@ -64,6 +64,12 @@ router.put('/:roomTypeId', authMiddleware, requireAdmin, async (req, res) => {
   const updatedRoom = await adminClient.collection('rooms').update(roomTypeId, {
     total_rooms: total_rooms,
     available_rooms: newAvailableRooms,
+    // Legacy room records predate this required field. PocketBase validates
+    // the complete record on update, so repair it while saving inventory.
+    capacity_beds: Math.max(
+      1,
+      Number(room.capacity_beds) || Number(room.capacity) || 1,
+    ),
   });
 
   const bookedRooms = updatedRoom.total_rooms - updatedRoom.available_rooms;
