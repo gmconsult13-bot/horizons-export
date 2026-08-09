@@ -78,6 +78,43 @@ export const GuestAuthProvider = ({ children }) => {
     const normalizedPhone =
       phone.trim();
 
+    // Never contact PocketBase until the complete form has passed the
+    // registration checks. This prevents partial/invalid guest accounts.
+    const validationErrors = {};
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      validationErrors.email = { message: 'Invalid email address format.' };
+    }
+
+    if (!/^\+?[\d\s()-]{8,25}$/.test(normalizedPhone)) {
+      validationErrors.phone = { message: 'Invalid phone number format.' };
+    }
+
+    if (
+      typeof password !== 'string' ||
+      password.length < 8 ||
+      !/[A-Z]/.test(password) ||
+      !/[a-z]/.test(password) ||
+      !/[0-9]/.test(password)
+    ) {
+      validationErrors.password = {
+        message: 'Password must be at least 8 characters and contain uppercase, lowercase and a number.',
+      };
+    }
+
+    if (password !== passwordConfirm) {
+      validationErrors.passwordConfirm = { message: 'Passwords do not match.' };
+    }
+
+    if (Object.keys(validationErrors).length > 0) {
+      const validationError = new Error('Please correct the registration details.');
+      validationError.response = {
+        message: validationError.message,
+        data: validationErrors,
+      };
+      throw validationError;
+    }
+
     const record = await pb
       .collection('guests')
       .create(
