@@ -9,7 +9,8 @@ export const checkAdminAuth = () => {
   if (!pb.authStore.isValid) {
     throw new Error('Authentication Error: You are not logged in.');
   }
-  if (pb.authStore.model?.role !== 'admin') {
+  const admin = pb.authStore.model;
+  if (admin?.role !== 'admin' && admin?.is_admin !== true) {
     throw new Error('Permission Denied: Admin role is required.');
   }
   return true;
