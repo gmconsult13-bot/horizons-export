@@ -33,54 +33,85 @@ export const AdminAuthProvider = ({ children }) => {
    * Restore the admin session when the application starts.
    */
   useEffect(() => {
-    console.log('[AdminAuthContext] Initializing from localStorage...');
+    let cancelled = false;
 
-    const storedToken = localStorage.getItem('adminAuthToken');
-    const storedUserString = localStorage.getItem('adminUser');
-
-    if (!storedToken || !storedUserString) {
-      console.log(
-        '[AdminAuthContext] No valid session found in localStorage.'
-      );
-
-      pb.authStore.clear();
-      setIsInitialized(true);
-      return;
-    }
-
-    try {
-      const storedUser = JSON.parse(storedUserString);
-
-      /*
-       * Synchronize the token returned by the API with the PocketBase client.
-       * This allows adminSaveUtils.js to use pb.authStore.
-       */
-      pb.authStore.save(storedToken, storedUser);
-
-      setAuthToken(storedToken);
-      setCurrentUser(storedUser);
-      setIsAuthenticated(true);
-
-      console.log(
-        '[AdminAuthContext] Session restored for user:',
-        storedUser.email
-      );
-    } catch (error) {
-      console.error(
-        '[AdminAuthContext] Failed to restore the stored session:',
-        error
-      );
-
+    const clearStoredSession = () => {
       localStorage.removeItem('adminAuthToken');
       localStorage.removeItem('adminUser');
       pb.authStore.clear();
 
-      setAuthToken(null);
-      setCurrentUser(null);
-      setIsAuthenticated(false);
-    } finally {
-      setIsInitialized(true);
-    }
+      if (!cancelled) {
+        setAuthToken(null);
+        setCurrentUser(null);
+        setIsAuthenticated(false);
+      }
+    };
+
+    const initializeSession = async () => {
+      console.log('[AdminAuthContext] Verifying stored admin session...');
+
+      const storedToken = localStorage.getItem('adminAuthToken');
+      const storedUserString = localStorage.getItem('adminUser');
+
+      if (!storedToken || !storedUserString) {
+        clearStoredSession();
+        if (!cancelled) setIsInitialized(true);
+        return;
+      }
+
+      try {
+        const storedUser = JSON.parse(storedUserString);
+
+        if (
+          storedUser?.role !== 'admin' &&
+          storedUser?.is_admin !== true
+        ) {
+          throw new Error('Stored user is not an administrator.');
+        }
+
+        const response = await apiServerClient.fetch('/admin-auth/verify', {
+          headers: {
+            Authorization: `Bearer ${storedToken}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`Session verification failed: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        if (!data.valid || !data.user) {
+          throw new Error('The stored admin session is invalid.');
+        }
+
+        const verifiedToken = data.token || storedToken;
+
+        pb.authStore.save(verifiedToken, data.user);
+        localStorage.setItem('adminAuthToken', verifiedToken);
+        localStorage.setItem('adminUser', JSON.stringify(data.user));
+
+        if (!cancelled) {
+          setAuthToken(verifiedToken);
+          setCurrentUser(data.user);
+          setIsAuthenticated(true);
+        }
+      } catch (error) {
+        console.warn(
+          '[AdminAuthContext] Stored session rejected; login is required:',
+          error
+        );
+        clearStoredSession();
+      } finally {
+        if (!cancelled) setIsInitialized(true);
+      }
+    };
+
+    initializeSession();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   /*
