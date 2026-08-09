@@ -10,8 +10,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import apiServerClient from '@/lib/apiServerClient.js';
+import { useAdminAuth } from '@/contexts/AdminAuthContext.jsx';
 
 export default function RoomAllotmentsPage() {
+  const { authToken } = useAdminAuth();
   const [rooms, setRooms] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
@@ -61,7 +63,10 @@ export default function RoomAllotmentsPage() {
     try {
       const response = await apiServerClient.fetch(`/room-allotments/${selectedRoom.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
+        },
         body: JSON.stringify({ total_rooms: newTotal })
       });
 
