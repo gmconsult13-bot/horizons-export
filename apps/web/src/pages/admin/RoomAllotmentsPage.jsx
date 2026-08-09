@@ -13,7 +13,7 @@ import apiServerClient from '@/lib/apiServerClient.js';
 import { useAdminAuth } from '@/contexts/AdminAuthContext.jsx';
 
 export default function RoomAllotmentsPage() {
-  const { authToken } = useAdminAuth();
+  useAdminAuth();
   const [rooms, setRooms] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
@@ -65,7 +65,6 @@ export default function RoomAllotmentsPage() {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${authToken}`,
         },
         body: JSON.stringify({ total_rooms: newTotal })
       });
