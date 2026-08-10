@@ -83,7 +83,7 @@ export default function AdminDashboard() {
         const nextMonthStart = toPocketBaseDate(end);
         const today = now.toISOString().slice(0, 10);
 
-        const [monthlyBookings, activeBookings, rooms, monthlyReviews, latestBookings, latestReviews] = await Promise.all([
+        const results = await Promise.allSettled([
           pb.collection('bookings').getFullList({
             filter: `created >= "${monthStart}" && created < "${nextMonthStart}"`,
             sort: '-created',
@@ -110,6 +110,21 @@ export default function AdminDashboard() {
             $autoCancel: false,
           }),
         ]);
+
+        const failures = results.filter((result) => result.status === 'rejected');
+        failures.forEach((failure) => {
+          console.error('Dashboard data source failed:', failure.reason);
+        });
+
+        const valueOr = (index, fallback) =>
+          results[index].status === 'fulfilled' ? results[index].value : fallback;
+
+        const monthlyBookings = valueOr(0, []);
+        const activeBookings = valueOr(1, []);
+        const rooms = valueOr(2, []);
+        const monthlyReviews = valueOr(3, []);
+        const latestBookings = valueOr(4, { items: [] });
+        const latestReviews = valueOr(5, { items: [] });
 
         const validMonthlyBookings = monthlyBookings.filter(
           (booking) => booking.payment_status !== 'failed'
@@ -156,6 +171,9 @@ export default function AdminDashboard() {
             reviewsThisMonth: monthlyReviews.length,
           });
           setRecentActivity(activities);
+          if (failures.length === results.length) {
+            setLoadError('Dashboard data is temporarily unavailable.');
+          }
         }
       } catch (error) {
         console.error('Failed to load live dashboard statistics:', error);
