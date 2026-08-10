@@ -24,7 +24,9 @@ export default function RoomAllotmentsPage() {
   const fetchAllotments = async () => {
     setIsLoading(true);
     try {
-      const response = await apiServerClient.fetch('/room-allotments');
+      const response = await apiServerClient.fetch(
+        `/room-allotments?fresh=${Date.now()}`
+      );
       if (!response.ok) throw new Error('Failed to fetch room allotments');
       const data = await response.json();
       setRooms(data.room_types || []);
@@ -76,8 +78,14 @@ export default function RoomAllotmentsPage() {
       }
 
       toast.success('Room allotment updated successfully');
+      if (data.room_type) {
+        setRooms((currentRooms) =>
+          currentRooms.map((room) =>
+            room.id === data.room_type.id ? data.room_type : room
+          )
+        );
+      }
       setIsEditing(false);
-      fetchAllotments();
     } catch (error) {
       console.error('Error updating allotment:', error);
       toast.error(error.message || 'Failed to update room allotment');
