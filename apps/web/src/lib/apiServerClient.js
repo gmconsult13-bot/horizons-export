@@ -16,6 +16,7 @@ const apiServerClient = {
     return await window.fetch(API_SERVER_URL + url, {
       ...options,
       headers,
+      cache: options.cache || 'no-store',
     });
   }
 };
