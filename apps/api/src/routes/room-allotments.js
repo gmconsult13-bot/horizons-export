@@ -8,6 +8,10 @@ const router = express.Router();
 
 // GET /room-allotments
 router.get('/', async (req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+
   const rooms = await pb.collection('rooms').getFullList();
 
   const roomTypes = rooms.map((room) => {
@@ -61,7 +65,7 @@ router.put('/:roomTypeId', authMiddleware, requireAdmin, async (req, res) => {
   const newAvailableRooms = total_rooms - currentlyBooked;
 
   // Update the room record
-  const updatedRoom = await adminClient.collection('rooms').update(roomTypeId, {
+  await adminClient.collection('rooms').update(roomTypeId, {
     total_rooms: total_rooms,
     available_rooms: newAvailableRooms,
     // Legacy room records predate this required field. PocketBase validates
@@ -71,6 +75,21 @@ router.put('/:roomTypeId', authMiddleware, requireAdmin, async (req, res) => {
       Number(room.capacity_beds) || Number(room.capacity) || 1,
     ),
   });
+
+  // Confirm the persisted value instead of reporting success based only on
+  // the update response. This prevents a false success message.
+  const updatedRoom = await adminClient.collection('rooms').getOne(roomTypeId, {
+    requestKey: null,
+  });
+
+  if (Number(updatedRoom.total_rooms) !== total_rooms) {
+    logger.error(
+      `Room allotment verification failed for ${roomTypeId}: expected ${total_rooms}, received ${updatedRoom.total_rooms}`,
+    );
+    return res.status(500).json({
+      error: 'The room allotment was not saved in the database',
+    });
+  }
 
   const bookedRooms = updatedRoom.total_rooms - updatedRoom.available_rooms;
   const occupancyPercentage = (bookedRooms / updatedRoom.total_rooms) * 100;
