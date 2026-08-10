@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { saveRecord } from '@/utils/adminSaveUtils.js';
+import pb from '@/lib/pocketbaseClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -42,9 +42,13 @@ export default function DealForm({ deal, onSuccess, onCancel }) {
         data.append('image', imageFile);
       }
 
-      const result = await saveRecord('guest_deals', data, deal?.id || null);
-      if (!result.success) throw new Error(result.error);
-      toast.success(deal?.id ? 'Deal updated successfully' : 'Deal created successfully');
+      if (deal?.id) {
+        await pb.collection('guest_deals').update(deal.id, data, { $autoCancel: false });
+        toast.success('Deal updated successfully');
+      } else {
+        await pb.collection('guest_deals').create(data, { $autoCancel: false });
+        toast.success('Deal created successfully');
+      }
       
       if (onSuccess) onSuccess();
     } catch (error) {

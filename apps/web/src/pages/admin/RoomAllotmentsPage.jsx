@@ -10,10 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import apiServerClient from '@/lib/apiServerClient.js';
-import { useAdminAuth } from '@/contexts/AdminAuthContext.jsx';
 
 export default function RoomAllotmentsPage() {
-  useAdminAuth();
   const [rooms, setRooms] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
@@ -24,9 +22,7 @@ export default function RoomAllotmentsPage() {
   const fetchAllotments = async () => {
     setIsLoading(true);
     try {
-      const response = await apiServerClient.fetch(
-        `/room-allotments?fresh=${Date.now()}`
-      );
+      const response = await apiServerClient.fetch('/room-allotments');
       if (!response.ok) throw new Error('Failed to fetch room allotments');
       const data = await response.json();
       setRooms(data.room_types || []);
@@ -65,9 +61,7 @@ export default function RoomAllotmentsPage() {
     try {
       const response = await apiServerClient.fetch(`/room-allotments/${selectedRoom.id}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ total_rooms: newTotal })
       });
 
@@ -78,14 +72,8 @@ export default function RoomAllotmentsPage() {
       }
 
       toast.success('Room allotment updated successfully');
-      if (data.room_type) {
-        setRooms((currentRooms) =>
-          currentRooms.map((room) =>
-            room.id === data.room_type.id ? data.room_type : room
-          )
-        );
-      }
       setIsEditing(false);
+      fetchAllotments();
     } catch (error) {
       console.error('Error updating allotment:', error);
       toast.error(error.message || 'Failed to update room allotment');

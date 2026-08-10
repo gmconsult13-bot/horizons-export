@@ -103,6 +103,7 @@ router.post('/reset-password', async (req, res) => {
   // Update user password
   await pb.collection('users').update(user.id, {
     password: password,
+    passwordConfirm: password,
     password_reset_token: '',
     password_reset_expires_at: null,
   });

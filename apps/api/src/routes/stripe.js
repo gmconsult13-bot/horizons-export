@@ -32,7 +32,7 @@ router.post('/create-checkout', async (req, res) => {
     line_items: [
       {
         price_data: {
-          currency: 'eur',
+          currency: 'usd',
           product_data: {
             name: productName,
           },

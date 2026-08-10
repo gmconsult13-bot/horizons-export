@@ -1,5 +1,4 @@
 import pb from '@/lib/pocketbaseClient.js';
-import apiServerClient from '@/lib/apiServerClient.js';
 
 /**
  * Validates that the current user is authenticated and has the admin role.
@@ -10,8 +9,7 @@ export const checkAdminAuth = () => {
   if (!pb.authStore.isValid) {
     throw new Error('Authentication Error: You are not logged in.');
   }
-  const admin = pb.authStore.model;
-  if (admin?.role !== 'admin' && admin?.is_admin !== true) {
+  if (pb.authStore.model?.role !== 'admin') {
     throw new Error('Permission Denied: Admin role is required.');
   }
   return true;
@@ -106,49 +104,12 @@ export const saveRecord = async (collection, data, recordId = null) => {
     
     console.log(`[adminSaveUtils] Attempting to ${recordId ? 'update' : 'create'} record in collection: ${collection}`);
     
-    const requestPayload = {};
-    if (payload instanceof FormData) {
-      for (const [key, value] of payload.entries()) {
-        if (value instanceof File) {
-          const bytes = new Uint8Array(await value.arrayBuffer());
-          let binary = '';
-          for (let index = 0; index < bytes.length; index += 1) {
-            binary += String.fromCharCode(bytes[index]);
-          }
-          requestPayload[key] = {
-            __adminFile: true,
-            name: value.name,
-            type: value.type,
-            base64: btoa(binary),
-          };
-        } else {
-          requestPayload[key] = value;
-        }
-      }
+    let record;
+    if (recordId) {
+      record = await pb.collection(collection).update(recordId, payload, { $autoCancel: false });
     } else {
-      Object.assign(requestPayload, payload);
+      record = await pb.collection(collection).create(payload, { $autoCancel: false });
     }
-
-    const response = await apiServerClient.fetch(
-      recordId
-        ? `/admin-records/${collection}/${recordId}`
-        : `/admin-records/${collection}`,
-      {
-        method: recordId ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestPayload),
-      },
-    );
-
-    const result = await response.json();
-    if (!response.ok || !result.success || !result.record) {
-      const error = new Error(result.error || 'The database rejected the change.');
-      error.status = response.status;
-      error.response = result;
-      throw error;
-    }
-
-    const record = result.record;
     
     console.log(`[adminSaveUtils] Successfully saved record to ${collection}:`, record);
     return { success: true, data: record, error: null, details: null };
@@ -180,17 +141,7 @@ export const deleteRecord = async (collection, recordId) => {
     checkAdminAuth();
     console.log(`[adminSaveUtils] Attempting to delete record ${recordId} from collection: ${collection}`);
     
-    const response = await apiServerClient.fetch(
-      `/admin-records/${collection}/${recordId}`,
-      { method: 'DELETE' },
-    );
-    const result = await response.json();
-    if (!response.ok || !result.success) {
-      const error = new Error(result.error || 'The database rejected the deletion.');
-      error.status = response.status;
-      error.response = result;
-      throw error;
-    }
+    await pb.collection(collection).delete(recordId, { $autoCancel: false });
     
     console.log(`[adminSaveUtils] Successfully deleted record ${recordId} from ${collection}`);
     return { success: true, data: null, error: null, details: null };

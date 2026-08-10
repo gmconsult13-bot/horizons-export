@@ -1,17 +1,12 @@
 import 'dotenv/config';
 import express from 'express';
-import pb, { createAuthenticatedSuperuserClient } from '../utils/pocketbaseClient.js';
+import pb from '../utils/pocketbaseClient.js';
 import logger from '../utils/logger.js';
-import { authMiddleware, requireAdmin } from '../middleware/auth.js';
 
 const router = express.Router();
 
 // GET /room-allotments
 router.get('/', async (req, res) => {
-  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
-  res.set('Pragma', 'no-cache');
-  res.set('Expires', '0');
-
   const rooms = await pb.collection('rooms').getFullList();
 
   const roomTypes = rooms.map((room) => {
@@ -36,7 +31,7 @@ router.get('/', async (req, res) => {
 });
 
 // PUT /room-allotments/:roomTypeId
-router.put('/:roomTypeId', authMiddleware, requireAdmin, async (req, res) => {
+router.put('/:roomTypeId', async (req, res) => {
   const { roomTypeId } = req.params;
   const { total_rooms } = req.body;
 
@@ -50,8 +45,7 @@ router.put('/:roomTypeId', authMiddleware, requireAdmin, async (req, res) => {
   }
 
   // Fetch the room record
-  const adminClient = await createAuthenticatedSuperuserClient();
-  const room = await adminClient.collection('rooms').getOne(roomTypeId);
+  const room = await pb.collection('rooms').getOne(roomTypeId);
 
   // Calculate currently booked rooms
   const currentlyBooked = room.total_rooms - room.available_rooms;
@@ -65,31 +59,10 @@ router.put('/:roomTypeId', authMiddleware, requireAdmin, async (req, res) => {
   const newAvailableRooms = total_rooms - currentlyBooked;
 
   // Update the room record
-  await adminClient.collection('rooms').update(roomTypeId, {
+  const updatedRoom = await pb.collection('rooms').update(roomTypeId, {
     total_rooms: total_rooms,
     available_rooms: newAvailableRooms,
-    // Legacy room records predate this required field. PocketBase validates
-    // the complete record on update, so repair it while saving inventory.
-    capacity_beds: Math.max(
-      1,
-      Number(room.capacity_beds) || Number(room.capacity) || 1,
-    ),
   });
-
-  // Confirm the persisted value instead of reporting success based only on
-  // the update response. This prevents a false success message.
-  const updatedRoom = await adminClient.collection('rooms').getOne(roomTypeId, {
-    requestKey: null,
-  });
-
-  if (Number(updatedRoom.total_rooms) !== total_rooms) {
-    logger.error(
-      `Room allotment verification failed for ${roomTypeId}: expected ${total_rooms}, received ${updatedRoom.total_rooms}`,
-    );
-    return res.status(500).json({
-      error: 'The room allotment was not saved in the database',
-    });
-  }
 
   const bookedRooms = updatedRoom.total_rooms - updatedRoom.available_rooms;
   const occupancyPercentage = (bookedRooms / updatedRoom.total_rooms) * 100;

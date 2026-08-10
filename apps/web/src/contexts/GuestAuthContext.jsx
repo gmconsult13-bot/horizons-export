@@ -1,233 +1,78 @@
-import React, {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-} from 'react';
-
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import pb from '@/lib/pocketbaseClient.js';
 
-const GuestAuthContext = createContext(null);
+const GuestAuthContext = createContext();
 
 export const GuestAuthProvider = ({ children }) => {
-  const [currentGuest, setCurrentGuest] = useState(
-    pb.authStore.record || pb.authStore.model || null,
-  );
-
+  const [currentGuest, setCurrentGuest] = useState(pb.authStore.model);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = pb.authStore.onChange(
-      (_token, record) => {
-        setCurrentGuest(record || null);
-      },
-      true,
-    );
-
+    setCurrentGuest(pb.authStore.model);
+    
+    // Subscribe to PocketBase auth state changes
+    const unsub = pb.authStore.onChange((token, model) => {
+      setCurrentGuest(model);
+    });
+    
     setIsLoading(false);
-
-    return unsubscribe;
+    return () => unsub();
   }, []);
 
   const login = async (email, password) => {
-    const normalizedEmail = email.trim().toLowerCase();
-
     try {
-      const authData = await pb
-        .collection('guests')
-        .authWithPassword(
-          normalizedEmail,
-          password,
-          {
-            $autoCancel: false,
-          },
-        );
-
-      if (authData.record?.verified !== true) {
-        pb.authStore.clear();
-
-        const error = new Error(
-          'Please verify your email address before logging in.',
-        );
-
-        error.code = 'EMAIL_NOT_VERIFIED';
-
-        throw error;
-      }
-
+      console.log('[GuestAuth] Attempting login for:', email);
+      const authData = await pb.collection('guests').authWithPassword(email, password, { $autoCancel: false });
+      console.log('[GuestAuth] Login successful.');
       return authData;
     } catch (error) {
-      if (error?.code === 'EMAIL_NOT_VERIFIED') {
-        throw error;
-      }
-
-      pb.authStore.clear();
+      console.error('[GuestAuth] Login failed:', error.response || error);
       throw error;
     }
   };
 
-  const register = async ({
-    email,
-    password,
-    passwordConfirm,
-    phone,
-  }) => {
-    const normalizedEmail =
-      email.trim().toLowerCase();
-
-    const normalizedPhone =
-      phone.trim();
-
-    // Never contact PocketBase until the complete form has passed the
-    // registration checks. This prevents partial/invalid guest accounts.
-    const validationErrors = {};
-
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
-      validationErrors.email = { message: 'Invalid email address format.' };
-    }
-
-    if (!/^\+?[\d\s()-]{8,25}$/.test(normalizedPhone)) {
-      validationErrors.phone = { message: 'Invalid phone number format.' };
-    }
-
-    if (
-      typeof password !== 'string' ||
-      password.length < 8 ||
-      !/[A-Z]/.test(password) ||
-      !/[a-z]/.test(password) ||
-      !/[0-9]/.test(password)
-    ) {
-      validationErrors.password = {
-        message: 'Password must be at least 8 characters and contain uppercase, lowercase and a number.',
-      };
-    }
-
-    if (password !== passwordConfirm) {
-      validationErrors.passwordConfirm = { message: 'Passwords do not match.' };
-    }
-
-    if (Object.keys(validationErrors).length > 0) {
-      const validationError = new Error('Please correct the registration details.');
-      validationError.response = {
-        message: validationError.message,
-        data: validationErrors,
-      };
-      throw validationError;
-    }
-
-    const record = await pb
-      .collection('guests')
-      .create(
-        {
-          email: normalizedEmail,
-          password,
-          passwordConfirm,
-          phone: normalizedPhone,
-          emailVisibility: false,
-        },
-        {
-          $autoCancel: false,
-        },
-      );
-
+  const register = async (email, password, passwordConfirm, phone) => {
     try {
-      await pb
-        .collection('guests')
-        .requestVerification(
-          normalizedEmail,
-          {
-            $autoCancel: false,
-          },
-        );
+      const normalizedEmail = String(email || '').trim().toLowerCase();
+      const normalizedPhone = String(phone || '').trim();
+      if (!normalizedEmail || !normalizedPhone || !password || !passwordConfirm) {
+        throw new Error('All registration fields are required.');
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+        throw new Error('Invalid email address format.');
+      }
+      if (!/^\+?[\d\s-]{8,20}$/.test(normalizedPhone)) {
+        throw new Error('Invalid phone number format.');
+      }
+      if (password.length < 8) throw new Error('Password must be at least 8 characters long.');
+      if (password !== passwordConfirm) throw new Error('Passwords do not match.');
 
-      return {
-        record,
-        verificationEmailSent: true,
-      };
-    } catch (verificationError) {
-      console.error(
-        'Account created, but verification email could not be sent:',
-        verificationError,
-      );
-
-      return {
-        record,
-        verificationEmailSent: false,
-        verificationError,
-      };
-    }
-  };
-
-  const resendVerification = async (email) => {
-    const normalizedEmail =
-      email.trim().toLowerCase();
-
-    return pb
-      .collection('guests')
-      .requestVerification(
-        normalizedEmail,
-        {
-          $autoCancel: false,
-        },
-      );
-  };
-
-  const confirmEmailVerification = async (
-    token,
-  ) => {
-    if (!token) {
-      throw new Error(
-        'The verification token is missing.',
-      );
-    }
-
-    return pb
-      .collection('guests')
-      .confirmVerification(
-        token,
-        {
-          $autoCancel: false,
-        },
-      );
-  };
-
-  const requestPasswordReset = async (
-    email,
-  ) => {
-    const normalizedEmail =
-      email.trim().toLowerCase();
-
-    return pb
-      .collection('guests')
-      .requestPasswordReset(
-        normalizedEmail,
-        {
-          $autoCancel: false,
-        },
-      );
-  };
-
-  const confirmPasswordReset = async (
-    token,
-    password,
-    passwordConfirm,
-  ) => {
-    if (!token) {
-      throw new Error(
-        'The password-reset token is missing.',
-      );
-    }
-
-    return pb
-      .collection('guests')
-      .confirmPasswordReset(
-        token,
+      console.log('[GuestAuth] Attempting to create guest record...');
+      
+      // Ensure all required fields including emailVerified are passed to prevent schema issues
+      const payload = {
+        email: normalizedEmail,
         password,
         passwordConfirm,
-        {
-          $autoCancel: false,
-        },
-      );
+        phone: normalizedPhone,
+        emailVerified: false,
+        email_verified: false
+      };
+      
+      console.log('[GuestAuth] Registration payload:', { 
+        ...payload, 
+        password: '[REDACTED]', 
+        passwordConfirm: '[REDACTED]' 
+      });
+
+      const record = await pb.collection('guests').create(payload, { $autoCancel: false });
+      console.log('[GuestAuth] Guest record created successfully with ID:', record.id);
+      
+      return record;
+    } catch (error) {
+      console.error('[GuestAuth] Registration failed:', error.response || error);
+      throw error;
+    }
   };
 
   const logout = () => {
@@ -235,42 +80,21 @@ export const GuestAuthProvider = ({ children }) => {
     setCurrentGuest(null);
   };
 
-  const isGuestAuthenticated =
-    pb.authStore.isValid &&
-    currentGuest?.collectionName ===
-      'guests' &&
-    currentGuest?.verified === true;
+  // We consider them a guest if they are authenticated and belong to the 'guests' collection
+  const isGuestAuthenticated = pb.authStore.isValid && currentGuest?.collectionName === 'guests';
 
   return (
-    <GuestAuthContext.Provider
-      value={{
-        currentGuest,
-        isGuestAuthenticated,
-        isLoading,
-        login,
-        register,
-        logout,
-        resendVerification,
-        requestPasswordReset,
-        confirmPasswordReset,
-        confirmEmailVerification,
-      }}
-    >
+    <GuestAuthContext.Provider value={{ 
+      currentGuest, 
+      isGuestAuthenticated, 
+      isLoading,
+      login, 
+      register, 
+      logout 
+    }}>
       {children}
     </GuestAuthContext.Provider>
   );
 };
 
-export const useGuestAuth = () => {
-  const context = useContext(
-    GuestAuthContext,
-  );
-
-  if (!context) {
-    throw new Error(
-      'useGuestAuth must be used inside GuestAuthProvider',
-    );
-  }
-
-  return context;
-};
+export const useGuestAuth = () => useContext(GuestAuthContext);

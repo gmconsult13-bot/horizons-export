@@ -27,14 +27,14 @@ const getRoomThemeMapping = (name) => {
     };
   } else if (lowercaseName.includes('double deluxe') || lowercaseName.includes('deluxe')) {
     return {
-      image: 'https://horizons-cdn.hostinger.com/9719a614-3994-48cd-ad44-20d7d067e3db/4d63df05d70d30c1f8603d8d74d35da9.jpg',
+      image: 'https://horizons-cdn.hostinger.com/9719a614-3994-48cd-ad44-20d7d067e3db/2d51d4c7a2d2d35c9f040b3ba60a768b.jpg',
       description: 'Spacious luxury bedroom with wooden headboard, fern botanical pattern bedding, contemporary wall art with gold and green tones, large architectural windows with nature views, beige armchair, smart TV, and modern amenities.',
       amenities: ['Large Windows', 'Wooden Headboard', 'Smart TV', 'Contemporary Art']
     };
   } else {
     // Economy Room Fallback
     return {
-      image: 'https://horizons-cdn.hostinger.com/9719a614-3994-48cd-ad44-20d7d067e3db/2d51d4c7a2d2d35c9f040b3ba60a768b.jpg',
+      image: 'https://horizons-cdn.hostinger.com/9719a614-3994-48cd-ad44-20d7d067e3db/4d63df05d70d30c1f8603d8d74d35da9.jpg',
       description: 'Modern minimalist design with wooden accents, fern botanical pattern bedding, warm ambient lighting with black metal fixtures, large windows with views, comfortable seating area, and air conditioning.',
       amenities: ['Wooden Accents', 'Ambient Lighting', 'Seating Area', 'Air Conditioning']
     };

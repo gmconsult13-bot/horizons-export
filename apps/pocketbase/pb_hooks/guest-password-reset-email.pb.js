@@ -57,8 +57,8 @@ Raya Boutique Hotel
 
   const message = new MailerMessage({
     from: {
-      address: $app.settings().meta.senderAddress,
-      name: $app.settings().meta.senderName
+      address: "info@rayaboutique.eu",
+      name: "Raya Boutique"
     },
     to: [{ address: guestEmail }],
     subject: "Password Reset Request - Raya Boutique",

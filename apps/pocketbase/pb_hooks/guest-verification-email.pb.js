@@ -116,7 +116,7 @@ onRecordAfterCreateSuccess((e) => {
   // Send verification email
   const message = new MailerMessage({
     from: {
-      address: 'info@rayaboutique.com',
+      address: 'info@rayaboutique.eu',
       name: 'Ray Aboutique'
     },
     to: [{ address: guestEmail }],

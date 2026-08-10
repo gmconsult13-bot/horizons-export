@@ -10,7 +10,6 @@ import reviewsRouter from './reviews.js';
 import reviewsAnalyticsRouter from './reviews-analytics.js';
 import adminAuthRouter from './admin-auth.js';
 import adminPasswordResetRouter from './admin-password-reset.js';
-import adminRecordsRouter from './admin-records.js';
 
 const router = Router();
 
@@ -26,7 +25,6 @@ export default () => {
     router.use('/reviews-analytics', reviewsAnalyticsRouter);
     router.use('/admin-auth', adminAuthRouter);
     router.use('/admin-password-reset', adminPasswordResetRouter);
-    router.use('/admin-records', adminRecordsRouter);
 
     return router;
 };

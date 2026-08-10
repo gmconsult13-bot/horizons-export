@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import pb from '@/lib/pocketbaseClient.js';
-import { deleteRecord, saveRecord } from '@/utils/adminSaveUtils.js';
 
 export default function AdminBookingsPage() {
   const [bookings, setBookings] = useState([]);
@@ -58,8 +57,7 @@ export default function AdminBookingsPage() {
 
   const handleMarkCompleted = async (id) => {
     try {
-      const result = await saveRecord('bookings', { payment_status: 'completed' }, id);
-      if (!result.success) throw new Error(result.error);
+      await pb.collection('bookings').update(id, { payment_status: 'completed' }, { $autoCancel: false });
       toast.success('Booking marked as completed');
       fetchBookings();
     } catch (error) {
@@ -70,8 +68,7 @@ export default function AdminBookingsPage() {
   const handleDelete = async (id) => {
     if (!window.confirm('Are you sure you want to delete this booking?')) return;
     try {
-      const result = await deleteRecord('bookings', id);
-      if (!result.success) throw new Error(result.error);
+      await pb.collection('bookings').delete(id, { $autoCancel: false });
       toast.success('Booking deleted');
       fetchBookings();
     } catch (error) {
