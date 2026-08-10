@@ -21,9 +21,12 @@ export const AdminAuthProvider = ({ children }) => {
 
   const clearSession = useCallback(() => {
     if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
+    const hadAdminSession = Boolean(localStorage.getItem('adminAuthToken')) ||
+      pb.authStore.model?.role === 'admin' ||
+      pb.authStore.model?.is_admin === true;
     localStorage.removeItem('adminAuthToken');
     localStorage.removeItem('adminUser');
-    if (pb.authStore.model?.collectionName === 'users') pb.authStore.clear();
+    if (hadAdminSession) pb.authStore.clear();
     setAuthToken(null);
     setCurrentUser(null);
     setIsAuthenticated(false);
