@@ -14,7 +14,7 @@ import { BodyLimit } from './constants/common.js';
 
 const app = express();
 const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
-const webDistDirectory = path.resolve(currentDirectory, '../../web/dist');
+const webDistDirectory = path.resolve(currentDirectory, '../../../dist/apps/web');
 const pocketBaseUrl =
 	process.env.POCKETBASE_URL?.trim() ||
 	process.env.PB_URL?.trim() ||
@@ -25,7 +25,7 @@ app.set('trust proxy', true);
 process.on('uncaughtException', (error) => {
 	logger.error('Uncaught exception:', error);
 });
-  
+
 process.on('unhandledRejection', (reason, promise) => {
 	logger.error('Unhandled rejection at:', promise, 'reason:', reason);
 });
@@ -37,17 +37,12 @@ process.on('SIGINT', async () => {
 
 process.on('SIGTERM', async () => {
 	logger.info('SIGTERM signal received');
-
 	await new Promise(resolve => setTimeout(resolve, 3000));
-
 	logger.info('Exiting');
 	process.exit();
 });
 
 app.use(helmet({
-	// The existing site loads hotel images, analytics, and fonts from external
-	// providers. Keep their current behaviour while still applying Helmet's
-	// remaining security headers.
 	contentSecurityPolicy: false,
 }));
 app.use(cors({
@@ -56,36 +51,26 @@ app.use(cors({
 }));
 app.use(morgan('combined'));
 
-// Keep the public URLs used by the exported Horizons frontend. PocketBase has
-// its own request protections, so don't count its traffic against the Express
-// API limiter.
 app.use('/hcgi/platform', createProxyMiddleware({
 	target: pocketBaseUrl,
 	changeOrigin: true,
 	ws: true,
 }));
 
-app.use(express.json({
-	limit: BodyLimit,
-}));
-app.use(express.urlencoded({ 
+app.use(express.json({ limit: BodyLimit }));
+app.use(express.urlencoded({
 	extended: true,
 	limit: BodyLimit,
 }));
 
-// Rate-limit API traffic only. Static React assets and normal page navigation
-// must never consume the API request quota.
 app.use('/hcgi/api', globalRateLimit, routes());
 
 app.use(express.static(webDistDirectory));
 
-// React Router routes such as /rooms and /admin/login must return index.html
-// when they are opened directly in the browser.
 app.use((req, res, next) => {
 	if (req.method === 'GET' && req.accepts('html')) {
 		return res.sendFile(path.join(webDistDirectory, 'index.html'));
 	}
-
 	return next();
 });
 
