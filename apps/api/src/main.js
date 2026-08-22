@@ -55,11 +55,10 @@ app.use(cors({
 	credentials: true,
 }));
 app.use(morgan('combined'));
-app.use(globalRateLimit);
 
-// Keep the public URLs used by the exported Horizons frontend. Mount this
-// before the body parsers so file uploads and other request streams reach
-// PocketBase unchanged.
+// Keep the public URLs used by the exported Horizons frontend. PocketBase has
+// its own request protections, so don't count its traffic against the Express
+// API limiter.
 app.use('/hcgi/platform', createProxyMiddleware({
 	target: pocketBaseUrl,
 	changeOrigin: true,
@@ -74,7 +73,9 @@ app.use(express.urlencoded({
 	limit: BodyLimit,
 }));
 
-app.use('/hcgi/api', routes());
+// Rate-limit API traffic only. Static React assets and normal page navigation
+// must never consume the API request quota.
+app.use('/hcgi/api', globalRateLimit, routes());
 
 app.use(express.static(webDistDirectory));
 
