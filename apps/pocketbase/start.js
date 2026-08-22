@@ -1,13 +1,49 @@
-import { chmodSync } from 'node:fs';
+import { chmodSync, cpSync, existsSync, mkdirSync, readdirSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
 const binaryPath = path.join(currentDirectory, 'pocketbase');
-const dataDirectory = process.env.PB_DATA_DIR?.trim() || '/data';
 const port = process.env.PB_PORT?.trim() || '8090';
 const pocketBaseUrl = `http://127.0.0.1:${port}`;
+
+// Hostinger deploys every application version into a disposable hbuilds path.
+// Keep PocketBase outside that version directory so registrations, bookings,
+// rooms and admin changes survive redeployments.
+const persistentDefault = process.env.HOME
+  ? path.join(
+      process.env.HOME,
+      'domains',
+      process.env.APP_DOMAIN?.trim() || 'rayaboutique.eu',
+      'pb_data',
+    )
+  : path.join(currentDirectory, 'pb_data_runtime');
+
+const dataDirectory = process.env.PB_DATA_DIR?.trim() || persistentDefault;
+const legacyDataDirectory = '/data';
+
+mkdirSync(dataDirectory, { recursive: true });
+
+// One-time compatibility migration from the old /data location when it exists.
+// Never overwrite an already populated persistent database.
+try {
+  const targetIsEmpty = readdirSync(dataDirectory).length === 0;
+  if (
+    targetIsEmpty &&
+    dataDirectory !== legacyDataDirectory &&
+    existsSync(legacyDataDirectory)
+  ) {
+    cpSync(legacyDataDirectory, dataDirectory, {
+      recursive: true,
+      force: false,
+      errorOnExist: false,
+    });
+    console.log(`Migrated legacy PocketBase data from ${legacyDataDirectory} to ${dataDirectory}`);
+  }
+} catch (error) {
+  console.warn('PocketBase legacy data migration was skipped:', error.message);
+}
 
 chmodSync(binaryPath, 0o755);
 
@@ -46,7 +82,7 @@ export const waitForPocketBase = async ({ timeoutMs = 20000 } = {}) => {
       });
 
       if (response.ok) {
-        console.log(`PocketBase is ready at ${pocketBaseUrl}`);
+        console.log(`PocketBase is ready at ${pocketBaseUrl} using ${dataDirectory}`);
         return pocketBaseUrl;
       }
     } catch (error) {
@@ -82,8 +118,5 @@ pocketBase.on('exit', (code, signal) => {
   }
 
   console.error(message);
-  // PocketBase is required for rooms, registration, login and bookings.
-  // If it dies, terminate the web process too so Hostinger can restart the
-  // complete application instead of leaving a half-working site online.
   process.exit(1);
 });
