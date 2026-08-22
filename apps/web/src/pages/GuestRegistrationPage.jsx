@@ -12,98 +12,107 @@ import Footer from '@/components/Footer.jsx';
 
 export default function GuestRegistrationPage() {
   const navigate = useNavigate();
-  const { register, login } = useGuestAuth();
-  
+  const { register } = useGuestAuth();
+
   const [formData, setFormData] = useState({
     email: '',
     phone: '',
     password: '',
-    passwordConfirm: ''
+    passwordConfirm: '',
   });
-  
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState({});
 
   const validateForm = () => {
     const newErrors = {};
-    
+
     if (!formData.email) newErrors.email = 'Email is required';
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) newErrors.email = 'Invalid email address format';
-    
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      newErrors.email = 'Invalid email address format';
+    }
+
     if (!formData.phone) newErrors.phone = 'Phone number is required';
-    else if (!/^\+?[\d\s-]{8,20}$/.test(formData.phone)) newErrors.phone = 'Invalid phone number format';
-    
+    else if (!/^\+?[\d\s-]{8,20}$/.test(formData.phone)) {
+      newErrors.phone = 'Invalid phone number format';
+    }
+
     if (!formData.password) newErrors.password = 'Password is required';
-    else if (formData.password.length < 8) newErrors.password = 'Password must be at least 8 characters long';
-    
-    if (!formData.passwordConfirm) newErrors.passwordConfirm = 'Please confirm your password';
-    else if (formData.password !== formData.passwordConfirm) {
+    else if (formData.password.length < 8) {
+      newErrors.password = 'Password must be at least 8 characters long';
+    }
+
+    if (!formData.passwordConfirm) {
+      newErrors.passwordConfirm = 'Please confirm your password';
+    } else if (formData.password !== formData.passwordConfirm) {
       newErrors.passwordConfirm = 'Passwords do not match';
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-    if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    if (errors[name]) {
+      setErrors((prev) => ({ ...prev, [name]: '' }));
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       toast.error('Please fix the errors in the form.');
       return;
     }
-    
+
     setIsSubmitting(true);
-    
+
     try {
-      console.log('[RegistrationForm] Initiating registration flow...');
-      
-      // Step 1: Create the guest record
-      await register(formData.email, formData.password, formData.passwordConfirm, formData.phone);
-      console.log('[RegistrationForm] Guest created. Attempting auto-login...');
-      
-      // Step 2: Automatically log them in
-      await login(formData.email, formData.password);
-      console.log('[RegistrationForm] Auto-login successful.');
-      
-      toast.success('Registration successful!', {
-        description: 'Welcome to your account.'
+      const result = await register(formData);
+
+      if (result.verificationEmailSent) {
+        toast.success('Registration successful!', {
+          description: 'Please check your email and verify your account before logging in.',
+        });
+      } else {
+        toast.warning('Your account was created.', {
+          description: 'We could not send the verification email. Please try resending it from the login page.',
+        });
+      }
+
+      navigate('/login', {
+        state: {
+          registeredEmail: formData.email.trim().toLowerCase(),
+          verificationEmailSent: result.verificationEmailSent,
+        },
       });
-      
-      // Step 3: Redirect to guest dashboard
-      navigate('/guest/dashboard');
-      
     } catch (error) {
-      console.error('[RegistrationForm] Flow failed:', error);
-      
-      // Parse detailed error messages from PocketBase
+      console.error('[RegistrationForm] Registration failed:', error);
+
       let errorMessage = 'An unexpected error occurred. Please try again.';
-      
-      if (error.response?.data) {
-        const errorData = error.response.data;
-        if (errorData.email?.message) {
-          errorMessage = `Email: ${errorData.email.message}`;
-        } else if (errorData.password?.message) {
-          errorMessage = `Password: ${errorData.password.message}`;
-        } else if (errorData.passwordConfirm?.message) {
-          errorMessage = `Password Confirm: ${errorData.passwordConfirm.message}`;
-        } else if (errorData.phone?.message) {
-          errorMessage = `Phone: ${errorData.phone.message}`;
-        }
-      } else if (error.response?.message) {
+      const errorData = error?.response?.data || error?.data;
+
+      if (errorData?.email?.message) {
+        errorMessage = errorData.email.message.toLowerCase().includes('unique')
+          ? 'This email address is already registered.'
+          : `Email: ${errorData.email.message}`;
+      } else if (errorData?.password?.message) {
+        errorMessage = `Password: ${errorData.password.message}`;
+      } else if (errorData?.passwordConfirm?.message) {
+        errorMessage = `Password Confirm: ${errorData.passwordConfirm.message}`;
+      } else if (errorData?.phone?.message) {
+        errorMessage = `Phone: ${errorData.phone.message}`;
+      } else if (error?.response?.message) {
         errorMessage = error.response.message;
-      } else if (error.message) {
+      } else if (error?.message) {
         errorMessage = error.message;
       }
 
       toast.error('Registration Failed', {
-        description: errorMessage
+        description: errorMessage,
       });
     } finally {
       setIsSubmitting(false);
@@ -119,7 +128,6 @@ export default function GuestRegistrationPage() {
 
       <main className="flex-grow flex items-center justify-center py-16 px-4">
         <div className="max-w-md w-full bg-card p-8 rounded-2xl shadow-lg border border-border">
-          
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold font-serif mb-2 text-foreground">Create an Account</h1>
             <p className="text-muted-foreground text-sm">
@@ -137,7 +145,7 @@ export default function GuestRegistrationPage() {
                 placeholder="maya@example.com"
                 value={formData.email}
                 onChange={handleChange}
-                className={`text-foreground bg-background ${errors.email ? "border-destructive" : ""}`}
+                className={`text-foreground bg-background ${errors.email ? 'border-destructive' : ''}`}
                 disabled={isSubmitting}
                 required
               />
@@ -153,7 +161,7 @@ export default function GuestRegistrationPage() {
                 placeholder="+1 234 567 8900"
                 value={formData.phone}
                 onChange={handleChange}
-                className={`text-foreground bg-background ${errors.phone ? "border-destructive" : ""}`}
+                className={`text-foreground bg-background ${errors.phone ? 'border-destructive' : ''}`}
                 disabled={isSubmitting}
                 required
               />
@@ -169,7 +177,7 @@ export default function GuestRegistrationPage() {
                 placeholder="••••••••"
                 value={formData.password}
                 onChange={handleChange}
-                className={`text-foreground bg-background ${errors.password ? "border-destructive" : ""}`}
+                className={`text-foreground bg-background ${errors.password ? 'border-destructive' : ''}`}
                 disabled={isSubmitting}
                 required
               />
@@ -185,15 +193,15 @@ export default function GuestRegistrationPage() {
                 placeholder="••••••••"
                 value={formData.passwordConfirm}
                 onChange={handleChange}
-                className={`text-foreground bg-background ${errors.passwordConfirm ? "border-destructive" : ""}`}
+                className={`text-foreground bg-background ${errors.passwordConfirm ? 'border-destructive' : ''}`}
                 disabled={isSubmitting}
                 required
               />
               {errors.passwordConfirm && <p className="text-xs text-destructive font-medium">{errors.passwordConfirm}</p>}
             </div>
 
-            <Button 
-              type="submit" 
+            <Button
+              type="submit"
               className="w-full mt-6 h-11 text-base transition-all duration-200 active:scale-[0.98]"
               disabled={isSubmitting}
             >
@@ -212,7 +220,7 @@ export default function GuestRegistrationPage() {
 
           <div className="mt-8 text-center text-sm text-muted-foreground">
             Already have an account?{' '}
-            <Link to="/guest/login" className="text-primary font-medium hover:underline">
+            <Link to="/login" className="text-primary font-medium hover:underline">
               Log in here
             </Link>
           </div>
