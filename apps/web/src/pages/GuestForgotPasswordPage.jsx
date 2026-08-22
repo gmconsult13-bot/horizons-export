@@ -12,41 +12,32 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import Header from '@/components/Header.jsx';
 import Footer from '@/components/Footer.jsx';
-import apiServerClient from '@/lib/apiServerClient.js';
+import { useGuestAuth } from '@/contexts/GuestAuthContext.jsx';
 
 const forgotPasswordSchema = z.object({
   email: z.string().min(1, 'Email is required').email('Please enter a valid email address'),
 });
 
 export default function GuestForgotPasswordPage() {
+  const { requestPasswordReset } = useGuestAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
 
   const { register, handleSubmit, formState: { errors } } = useForm({
     resolver: zodResolver(forgotPasswordSchema),
-    defaultValues: { email: '' }
+    defaultValues: { email: '' },
   });
 
   const onSubmit = async (data) => {
     setIsSubmitting(true);
     try {
-      const response = await apiServerClient.fetch('/password-reset/request', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: data.email }),
-      });
-
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error || 'Failed to process request');
-      }
-
+      await requestPasswordReset(data.email);
       setIsSuccess(true);
       toast.success('Reset email sent successfully');
     } catch (error) {
       console.error('Password reset request error:', error);
       toast.error('Unable to send reset email.', {
-        description: error.message || 'Please check the email address and try again.'
+        description: error?.response?.message || error?.message || 'Please check the email address and try again.',
       });
     } finally {
       setIsSubmitting(false);
@@ -68,7 +59,7 @@ export default function GuestForgotPasswordPage() {
               Enter your email address to receive secure reset instructions.
             </p>
           </div>
-          
+
           {isSuccess ? (
             <div className="text-center space-y-6">
               <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -77,7 +68,7 @@ export default function GuestForgotPasswordPage() {
               <div className="space-y-2">
                 <h3 className="text-xl font-semibold text-foreground">Check your inbox</h3>
                 <p className="text-muted-foreground text-sm">
-                  We've sent password reset instructions to your email. The secure link will expire in 24 hours.
+                  We've sent password reset instructions to your email.
                 </p>
               </div>
               <Button asChild variant="outline" className="w-full h-11 text-base mt-6">
@@ -108,9 +99,9 @@ export default function GuestForgotPasswordPage() {
               </div>
 
               <div className="space-y-4 pt-4">
-                <Button 
-                  type="submit" 
-                  className="w-full h-11 text-base shadow-sm transition-all duration-200 active:scale-[0.98]" 
+                <Button
+                  type="submit"
+                  className="w-full h-11 text-base shadow-sm transition-all duration-200 active:scale-[0.98]"
                   disabled={isSubmitting}
                 >
                   {isSubmitting ? (
@@ -122,7 +113,7 @@ export default function GuestForgotPasswordPage() {
                     'Send Reset Email'
                   )}
                 </Button>
-                
+
                 <Button asChild variant="ghost" className="w-full h-11 text-muted-foreground hover:text-foreground">
                   <Link to="/login">
                     <ArrowLeft className="w-4 h-4 mr-2" />
