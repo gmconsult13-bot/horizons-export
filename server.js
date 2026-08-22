@@ -1,4 +1,5 @@
 import { existsSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -9,10 +10,21 @@ const webIndexFile = path.join(currentDirectory, 'apps', 'web', 'dist', 'index.h
 if (!existsSync(webIndexFile)) {
   console.log('Frontend build not found. Building apps/web before startup...');
 
-  const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+  // Hostinger's runtime doesn't expose `npm` on PATH. Resolve the npm CLI
+  // installed with Node and invoke it through the current Node executable.
+  const require = createRequire(import.meta.url);
+  let npmCli;
+
+  try {
+    npmCli = require.resolve('npm/bin/npm-cli.js');
+  } catch (error) {
+    console.error('Unable to locate the npm CLI in the Hostinger runtime.', error);
+    process.exit(1);
+  }
+
   const build = spawnSync(
-    npmCommand,
-    ['run', 'build', '--prefix', 'apps/web'],
+    process.execPath,
+    [npmCli, 'run', 'build', '--prefix', 'apps/web'],
     {
       cwd: currentDirectory,
       stdio: 'inherit',
