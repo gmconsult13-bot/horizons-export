@@ -4,11 +4,6 @@
 // signed verification token. The frontend confirms this token with
 // pb.collection('guests').confirmVerification(token).
 onMailerRecordVerificationSend((e) => {
-  if (e.record.collection().name !== 'guests') {
-    e.next();
-    return;
-  }
-
   const token = e.meta.token;
   const verificationUrl =
     'https://rayaboutique.eu/verify-email?token=' + encodeURIComponent(token);
