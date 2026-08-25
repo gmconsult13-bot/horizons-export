@@ -2,19 +2,14 @@
 
 function escapeHtml(value) {
   return String(value || '')
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#039;');
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }
 
 onRecordAfterUpdateSuccess((e) => {
-  if (e.record.collection().name !== 'bookings') {
-    e.next();
-    return;
-  }
-
   if (
     e.record.get('payment_status') !== 'completed' ||
     e.record.get('confirmation_email_sent') === true
@@ -36,10 +31,11 @@ onRecordAfterUpdateSuccess((e) => {
   const amount = Number(e.record.get('final_price') || 0).toFixed(2);
   const reference = escapeHtml(e.record.id);
 
+  const settings = e.app.settings();
   const message = new MailerMessage({
     from: {
-      address: e.app.settings().meta.senderAddress || 'info@rayaboutique.eu',
-      name: e.app.settings().meta.senderName || 'Raya Boutique',
+      address: settings.meta.senderAddress || 'info@rayaboutique.eu',
+      name: settings.meta.senderName || 'Raya Boutique',
     },
     to: [{ address: guestEmail }],
     subject: 'Booking confirmed - Raya Boutique',
