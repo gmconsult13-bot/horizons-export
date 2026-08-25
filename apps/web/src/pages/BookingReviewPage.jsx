@@ -8,12 +8,17 @@ import Footer from '@/components/Footer.jsx';
 export default function BookingReviewPage() {
   const location = useLocation();
   const navigate = useNavigate();
-  
+
   if (!location.state || !location.state.bookingData || !location.state.priceData) {
     return <Navigate to="/booking" replace />;
   }
 
   const { bookingData, priceData } = location.state;
+  const nights = Number(priceData.nights || 0);
+  const basePrice = Number(priceData.basePrice || 0);
+  const adultSurcharge = Number(priceData.adultSurcharge || 0);
+  const childSurcharge = Number(priceData.childSurcharge || 0);
+  const totalPrice = Number(priceData.totalPrice || 0);
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -32,13 +37,10 @@ export default function BookingReviewPage() {
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div className="text-muted-foreground">Accommodation</div>
                 <div className="font-medium text-right">{bookingData.accommodationType}</div>
-                
                 <div className="text-muted-foreground">Check-in</div>
                 <div className="font-medium text-right">{bookingData.checkInDate}</div>
-                
                 <div className="text-muted-foreground">Check-out</div>
                 <div className="font-medium text-right">{bookingData.checkOutDate}</div>
-                
                 <div className="text-muted-foreground">Guests</div>
                 <div className="font-medium text-right">{bookingData.numberOfAdults} Adults, {bookingData.numberOfChildren} Children</div>
               </div>
@@ -48,25 +50,25 @@ export default function BookingReviewPage() {
               <h2 className="text-2xl font-semibold mb-4">Price Breakdown</h2>
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Base Rate ({priceData.nights} nights)</span>
-                  <span>${(priceData.basePrice * priceData.nights).toFixed(2)}</span>
+                  <span className="text-muted-foreground">Base Rate ({nights} nights)</span>
+                  <span>€{(basePrice * nights).toFixed(2)}</span>
                 </div>
-                
-                {priceData.adultSurcharge > 0 && (
+
+                {adultSurcharge > 0 && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Adult Surcharge</span>
-                    <span>${(priceData.adultSurcharge * priceData.nights).toFixed(2)}</span>
-                  </div>
-                )}
-                
-                {priceData.childSurcharge > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Child Surcharge</span>
-                    <span>${(priceData.childSurcharge * priceData.nights).toFixed(2)}</span>
+                    <span>€{(adultSurcharge * nights).toFixed(2)}</span>
                   </div>
                 )}
 
-                {priceData.seasonMultiplier !== 1 && (
+                {childSurcharge > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Child Surcharge</span>
+                    <span>€{(childSurcharge * nights).toFixed(2)}</span>
+                  </div>
+                )}
+
+                {Number(priceData.seasonMultiplier || 1) !== 1 && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Seasonal Adjustment</span>
                     <span>x{priceData.seasonMultiplier}</span>
@@ -75,7 +77,7 @@ export default function BookingReviewPage() {
 
                 <div className="border-t border-border pt-3 mt-3 flex justify-between items-center font-bold text-lg">
                   <span>Total Price</span>
-                  <span className="text-primary">${priceData.totalPrice.toFixed(2)}</span>
+                  <span className="text-primary">€{totalPrice.toFixed(2)}</span>
                 </div>
               </div>
             </div>
