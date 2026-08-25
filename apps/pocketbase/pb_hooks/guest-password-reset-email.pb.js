@@ -3,11 +3,6 @@
 // Customize PocketBase's native password-reset email and keep the native
 // signed token that confirmPasswordReset expects.
 onMailerRecordPasswordResetSend((e) => {
-  if (e.record.collection().name !== 'guests') {
-    e.next();
-    return;
-  }
-
   const token = e.meta.token;
   const resetUrl =
     'https://rayaboutique.eu/reset-password?token=' + encodeURIComponent(token);
