@@ -7,6 +7,7 @@ import { CreditCard, Calendar, Users, Home } from 'lucide-react';
 import Header from '@/components/Header.jsx';
 import Footer from '@/components/Footer.jsx';
 import apiServerClient from '@/lib/apiServerClient.js';
+import pb from '@/lib/pocketbaseClient.js';
 import { useGuestAuth } from '@/contexts/GuestAuthContext.jsx';
 
 export default function CheckoutPage() {
@@ -14,45 +15,76 @@ export default function CheckoutPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const { currentGuest } = useGuestAuth();
-  
+
   if (!location.state || !location.state.bookingData || !location.state.priceData) {
     return <Navigate to="/booking" replace />;
   }
 
   const { bookingData, priceData } = location.state;
+  const totalPrice = Number(priceData.totalPrice || 0);
 
   const handleCheckout = async () => {
-    setLoading(true);
-    try {
-      // Store booking data in sessionStorage to retrieve after successful payment
-      sessionStorage.setItem('pendingBooking', JSON.stringify({
-        bookingData,
-        priceData
-      }));
+    if (!currentGuest?.id) {
+      toast.error('Please log in again before completing your booking.');
+      navigate('/login');
+      return;
+    }
 
-      // Ensure we call '/stripe/create-checkout' (apiServerClient will prepend '/hcgi/api')
+    setLoading(true);
+
+    try {
+      // Create the booking before redirecting to Stripe. This gives the server
+      // a trusted booking ID and means a successful payment can always be
+      // reconciled even if the browser is refreshed or closed afterwards.
+      const bookingRecord = await pb.collection('bookings').create(
+        {
+          guest_name: currentGuest.name || currentGuest.email || 'Guest',
+          guest_email: currentGuest.email,
+          guest_phone: currentGuest.phone || '',
+          accommodationType: bookingData.accommodationType,
+          room_type: bookingData.accommodationType,
+          check_in_date: bookingData.checkInDate,
+          check_out_date: bookingData.checkOutDate,
+          num_adults: Number(bookingData.numberOfAdults || 0),
+          num_children: Number(bookingData.numberOfChildren || 0),
+          number_of_guests:
+            Number(bookingData.numberOfAdults || 0) +
+            Number(bookingData.numberOfChildren || 0),
+          childrenAges: bookingData.childrenAges || [],
+          final_price: totalPrice,
+          room_total: Number(priceData.basePrice || 0) * Number(priceData.nights || 0),
+          guest_surcharges:
+            (Number(priceData.adultSurcharge || 0) + Number(priceData.childSurcharge || 0)) *
+            Number(priceData.nights || 0),
+          meal_total: 0,
+          meal_plan_cost: 0,
+          meal_plan: 'room_only',
+          cancellation_policy: 'flexible',
+          payment_status: 'pending',
+          guestId: currentGuest.id,
+          terms_accepted: true,
+        },
+        { $autoCancel: false },
+      );
+
       const response = await apiServerClient.fetch('/stripe/create-checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          amount: Math.round(priceData.totalPrice * 100), // Convert to cents
-          productName: `${bookingData.accommodationType} Booking`,
-          successUrl: window.location.origin + '/booking/confirmation?session_id={CHECKOUT_SESSION_ID}',
-          cancelUrl: window.location.origin + '/booking/checkout'
-        })
+        body: JSON.stringify({ bookingId: bookingRecord.id }),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to initialize checkout');
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok || !data.url) {
+        throw new Error(data.error || 'Failed to initialize checkout');
       }
 
-      const data = await response.json();
-      // CRITICAL: Must use window.open with '_blank' to bypass iframe navigation issues
-      window.open(data.url, '_blank');
-      setLoading(false); // Reset loading state in case the user closes the popup and wants to retry
+      window.location.assign(data.url);
     } catch (error) {
       console.error('Checkout error:', error);
-      toast.error('Failed to start payment process. Please try again.');
+      toast.error('Failed to start payment process.', {
+        description: error.message || 'Please try again.',
+      });
       setLoading(false);
     }
   };
@@ -69,7 +101,6 @@ export default function CheckoutPage() {
           <h1 className="text-4xl font-bold mb-10 text-foreground text-center">Checkout Summary</h1>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {/* Booking & Guest Details */}
             <div className="bg-card p-8 rounded-2xl shadow-sm border border-border space-y-8">
               <div>
                 <h2 className="text-2xl font-semibold border-b border-border pb-4 mb-4">Booking Details</h2>
@@ -112,12 +143,8 @@ export default function CheckoutPage() {
                   <div className="grid grid-cols-2 gap-y-4 gap-x-6 text-sm">
                     <div className="text-muted-foreground">Name</div>
                     <div className="font-medium text-right text-foreground">{currentGuest.name || 'Not provided'}</div>
-                    
                     <div className="text-muted-foreground">Email</div>
-                    <div className="font-medium text-right text-foreground truncate" title={currentGuest.email}>
-                      {currentGuest.email}
-                    </div>
-                    
+                    <div className="font-medium text-right text-foreground truncate" title={currentGuest.email}>{currentGuest.email}</div>
                     <div className="text-muted-foreground">Phone</div>
                     <div className="font-medium text-right text-foreground">{currentGuest.phone || 'Not provided'}</div>
                   </div>
@@ -125,19 +152,18 @@ export default function CheckoutPage() {
               )}
             </div>
 
-            {/* Payment Summary */}
             <div className="bg-muted/30 p-8 rounded-2xl shadow-sm border border-border flex flex-col justify-center text-center">
               <div className="text-muted-foreground mb-2 text-lg">Total Amount Due</div>
-              <div className="text-6xl font-bold text-primary mb-8">${priceData.totalPrice.toFixed(2)}</div>
-              
+              <div className="text-6xl font-bold text-primary mb-8">€{totalPrice.toFixed(2)}</div>
+
               <p className="text-sm text-muted-foreground mb-8 px-4">
                 You will be redirected to Stripe to complete your secure payment.
               </p>
 
-              <Button 
-                className="w-full h-14 text-lg bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-300 active:scale-[0.98]" 
+              <Button
+                className="w-full h-14 text-lg bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-300 active:scale-[0.98]"
                 onClick={handleCheckout}
-                disabled={loading}
+                disabled={loading || totalPrice <= 0}
               >
                 {loading ? 'Processing...' : (
                   <>
@@ -145,10 +171,10 @@ export default function CheckoutPage() {
                   </>
                 )}
               </Button>
-              
-              <Button 
-                variant="ghost" 
-                className="w-full mt-4 h-12 transition-all duration-300" 
+
+              <Button
+                variant="ghost"
+                className="w-full mt-4 h-12 transition-all duration-300"
                 onClick={() => navigate(-1)}
                 disabled={loading}
               >
