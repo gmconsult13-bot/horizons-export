@@ -9,8 +9,8 @@ import Header from '@/components/Header.jsx';
 import Footer from '@/components/Footer.jsx';
 import RoomCard from '@/components/RoomCard.jsx';
 import ReviewCard from '@/components/ReviewCard.jsx';
-import pb from '@/lib/pocketbaseClient.js';
 import apiServerClient from '@/lib/apiServerClient.js';
+import { fetchPublicRooms } from '@/services/publicRoomsService.js';
 
 export default function HomePage() {
   const [featuredRooms, setFeaturedRooms] = useState([]);
@@ -25,11 +25,8 @@ export default function HomePage() {
     setLoadingRooms(true);
     setErrorRooms(false);
     try {
-      const result = await pb.collection('rooms').getList(1, 3, {
-        sort: 'price',
-        $autoCancel: false
-      });
-      setFeaturedRooms(result.items || []);
+      const { rooms } = await fetchPublicRooms();
+      setFeaturedRooms(rooms.slice(0, 3));
     } catch (err) {
       console.error('Failed to fetch featured rooms:', err);
       setErrorRooms(true);

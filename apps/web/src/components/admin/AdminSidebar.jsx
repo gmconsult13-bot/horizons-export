@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, BedDouble, CalendarRange, Users, Settings, Image, 
   Utensils, CreditCard, Baby, ListOrdered, AlarmClock as CalendarLock, 
-  MessageSquare as MessageSquareStar, BarChart3, LogOut, Gift
+  MessageSquare as MessageSquareStar, BarChart3, LogOut, Gift, Megaphone
 } from 'lucide-react';
 import { cn } from '@/lib/utils.js';
 import { useAdminAuth } from '@/contexts/AdminAuthContext.jsx';
@@ -20,6 +20,7 @@ const ADMIN_NAV_LINKS = [
   { name: 'Dining', path: '/admin/dining', icon: Utensils },
   { name: 'Gallery', path: '/admin/gallery', icon: Image },
   { name: 'Deals', path: '/admin/deals', icon: Gift },
+  { name: 'Offer Leads', path: '/admin/offer-leads', icon: Megaphone },
   { name: 'Guests', path: '/admin/guests', icon: Users },
   { name: 'Guest Reviews', path: '/admin/reviews', icon: MessageSquareStar },
   { name: 'Reviews Analytics', path: '/admin/reviews-analytics', icon: BarChart3 },

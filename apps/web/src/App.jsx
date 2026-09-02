@@ -17,6 +17,7 @@ import DiningPage from '@/pages/DiningPage.jsx';
 import GalleryPage from '@/pages/GalleryPage.jsx';
 import DealsPage from '@/pages/DealsPage.jsx';
 import ContactPage from '@/pages/ContactPage.jsx';
+import SeptemberOfferPage from '@/pages/SeptemberOfferPage.jsx';
 
 // Guest Public/Auth Pages
 import GuestLoginPage from '@/pages/GuestLoginPage.jsx';
@@ -60,10 +61,15 @@ import RoomAvailabilityPage from '@/pages/admin/RoomAvailabilityPage.jsx';
 import AdminReviewsPage from '@/pages/admin/AdminReviewsPage.jsx';
 import ReviewsAnalyticsPage from '@/pages/admin/ReviewsAnalyticsPage.jsx';
 import GuestDealsManagement from '@/pages/admin/GuestDealsManagement.jsx';
+import OfferLeadsPage from '@/pages/admin/OfferLeadsPage.jsx';
 
 import { Toaster } from '@/components/ui/sonner';
 
 function App() {
+  const isLandingPageHost =
+    typeof window !== 'undefined' &&
+    window.location.hostname.toLowerCase() === 'landingpage.rayaboutique.eu';
+
   return (
     <AuthProvider>
       <GuestAuthProvider>
@@ -74,12 +80,14 @@ function App() {
               <FacebookPixel />
               <Routes>
                 {/* Public Pages */}
-                <Route path="/" element={<HomePage />} />
+                <Route path="/" element={isLandingPageHost ? <SeptemberOfferPage /> : <HomePage />} />
                 <Route path="/rooms" element={<RoomsPage />} />
                 <Route path="/dining" element={<DiningPage />} />
                 <Route path="/gallery" element={<GalleryPage />} />
                 <Route path="/deals" element={<DealsPage />} />
                 <Route path="/contact" element={<ContactPage />} />
+                <Route path="/september-offer" element={<SeptemberOfferPage />} />
+                <Route path="/offer" element={<SeptemberOfferPage />} />
                 <Route path="/reviews" element={<ReviewsPage />} />
                 <Route path="/reviews/submit" element={<ReviewSubmitPage />} />
                 
@@ -128,6 +136,7 @@ function App() {
                 <Route path="/admin/reviews" element={<ProtectedAdminRoute><AdminReviewsPage /></ProtectedAdminRoute>} />
                 <Route path="/admin/reviews-analytics" element={<ProtectedAdminRoute><ReviewsAnalyticsPage /></ProtectedAdminRoute>} />
                 <Route path="/admin/deals" element={<ProtectedAdminRoute><GuestDealsManagement /></ProtectedAdminRoute>} />
+                <Route path="/admin/offer-leads" element={<ProtectedAdminRoute><OfferLeadsPage /></ProtectedAdminRoute>} />
                 
                 <Route path="*" element={<NotFound />} />
               </Routes>
