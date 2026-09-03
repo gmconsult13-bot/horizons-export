@@ -12,11 +12,15 @@ process.env.PB_PORT = internalPocketBasePort;
 process.env.POCKETBASE_URL = `http://127.0.0.1:${internalPocketBasePort}`;
 process.env.PB_URL = process.env.POCKETBASE_URL;
 
-try {
-  const { waitForPocketBase } = await import('./apps/pocketbase/start.js');
-  await waitForPocketBase({ timeoutMs: 20000 });
-  await import('./apps/api/src/main.js');
-} catch (error) {
-  console.error('Failed to start the Raya Boutique application:', error);
-  process.exit(1);
-}
+// Hostinger's lsnode launcher loads this entry point with CommonJS require().
+// Keep the entry point synchronous and use dynamic imports inside the promise
+// chain so the ESM API and PocketBase modules remain compatible with it.
+import('./apps/pocketbase/start.js')
+  .then(async ({ waitForPocketBase }) => {
+    await waitForPocketBase({ timeoutMs: 20000 });
+    await import('./apps/api/src/main.js');
+  })
+  .catch((error) => {
+    console.error('Failed to start the Raya Boutique application:', error);
+    process.exit(1);
+  });
