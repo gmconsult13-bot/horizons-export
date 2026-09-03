@@ -35,14 +35,13 @@ onRecordAfterUpdateSuccess((e) => {
           // No existing review found, continue
         }
         
-        // Generate secure token: HMAC-SHA256(booking_id + secret)
-        const crypto = require('crypto');
+        // Generate secure token: HMAC-SHA256(booking_id) using PocketBase's built-in $security helper
+        // (require('crypto') does not exist in PocketBase's JS runtime and would throw)
         const secret = $app.settings().meta.REVIEW_TOKEN_SECRET || 'default-secret';
-        const tokenData = bookingId + secret;
-        const token = crypto.createHmac('sha256', secret).update(tokenData).digest('hex');
+        const token = $security.hs256(bookingId, secret);
         
         // Build review link
-        const reviewLink = 'https://yourdomain.com/reviews/submit?booking_id=' + bookingId + '&token=' + token;
+        const reviewLink = 'https://rayaboutique.eu/reviews/submit?booking_id=' + bookingId + '&token=' + token;
         
         // Send email
         const message = new MailerMessage({
@@ -51,8 +50,8 @@ onRecordAfterUpdateSuccess((e) => {
             name: $app.settings().meta.senderName
           },
           to: [{ address: guestEmail }],
-          subject: 'Share Your Stay Experience at Our Hotel',
-          html: '<h2>Thank You for Your Stay, ' + guestName + '!</h2>' +
+          subject: 'Share Your Stay Experience at Raya Boutique',
+          html: '<h2>Thank You for Your Stay, ' + guestName + '! (Raya Boutique)</h2>' +
                 '<p>We hope you had a wonderful experience at our hotel. Your feedback is invaluable to us and helps us continue to improve our services.</p>' +
                 '<h3>Rate Your Experience</h3>' +
                 '<p>We would love to hear about your stay. Please rate the following aspects on a scale of 1-6:</p>' +
@@ -66,9 +65,9 @@ onRecordAfterUpdateSuccess((e) => {
                 '<p><strong>Rating Scale:</strong> 1 = Poor, 2 = Fair, 3 = Good, 4 = Very Good, 5 = Excellent, 6 = Outstanding</p>' +
                 '<p><a href="' + reviewLink + '" style="display: inline-block; padding: 12px 24px; background-color: #007bff; color: white; text-decoration: none; border-radius: 4px; font-weight: bold;">Submit Your Review</a></p>' +
                 '<p><strong>Deadline:</strong> Please submit your review within 7 days of checkout for the most accurate feedback.</p>' +
-                '<p>If you have any questions or concerns, please don\'t hesitate to contact us at <strong>contact@hotel.com</strong> or call <strong>+1-800-HOTEL-1</strong>.</p>' +
+                '<p>If you have any questions or concerns, please don\'t hesitate to contact us at <strong>info@rayaboutique.eu</strong>.</p>' +
                 '<p>Thank you for choosing us!</p>' +
-                '<p>Best regards,<br>The Hotel Management Team</p>'
+                '<p>Best regards,<br>Raya Boutique Hotel Team</p>'
         });
         
         $app.newMailClient().send(message);

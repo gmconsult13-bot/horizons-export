@@ -52,25 +52,33 @@ export const GuestAuthProvider = ({ children }) => {
   };
 
   const register = async ({
+    name,
     email,
     password,
     passwordConfirm,
     phone,
+    marketingConsent,
   }) => {
     const normalizedEmail = String(email || '').trim().toLowerCase();
     const normalizedPhone = String(phone || '').trim();
+    const normalizedName = String(name || '').trim();
 
     if (!normalizedEmail || !normalizedPhone || !password || !passwordConfirm) {
       throw new Error('All registration fields are required.');
     }
 
+    const consentGiven = Boolean(marketingConsent);
+
     const record = await pb.collection('guests').create(
       {
+        name: normalizedName,
         email: normalizedEmail,
         password,
         passwordConfirm,
         phone: normalizedPhone,
         emailVisibility: false,
+        marketing_consent: consentGiven,
+        marketing_consent_at: consentGiven ? new Date().toISOString() : null,
       },
       { $autoCancel: false },
     );

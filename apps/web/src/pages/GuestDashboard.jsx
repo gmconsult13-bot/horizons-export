@@ -1,48 +1,88 @@
 import React, { useEffect, useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { Link } from 'react-router-dom';
-import { Calendar, CreditCard, Loader2 } from 'lucide-react';
+import { Calendar, CreditCard, Loader2, XCircle, ShieldCheck, ShieldAlert } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import Header from '@/components/Header.jsx';
 import Footer from '@/components/Footer.jsx';
 import pb from '@/lib/pocketbaseClient.js';
+import apiServerClient from '@/lib/apiServerClient.js';
 import { useGuestAuth } from '@/contexts/GuestAuthContext.jsx';
 
 export default function GuestDashboard() {
   const { currentGuest } = useGuestAuth();
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [cancellingId, setCancellingId] = useState(null);
+  const [confirmingId, setConfirmingId] = useState(null);
+
+  const fetchBookings = async () => {
+    if (!currentGuest?.id) return;
+    try {
+      const result = await pb.collection('bookings').getList(1, 50, {
+        filter: `guest_id="${currentGuest.id}"`,
+        sort: '-created',
+        $autoCancel: false
+      });
+      setBookings(result.items);
+    } catch (error) {
+      console.error('Failed to fetch bookings:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchBookings = async () => {
-      if (!currentGuest?.id) return;
-      try {
-        const result = await pb.collection('bookings').getList(1, 50, {
-          filter: `guestId="${currentGuest.id}"`,
-          sort: '-created',
-          $autoCancel: false
-        });
-        setBookings(result.items);
-      } catch (error) {
-        console.error('Failed to fetch bookings:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchBookings();
   }, [currentGuest]);
 
-  const getStatusBadge = (status) => {
-    switch (status) {
+  const getStatusBadge = (booking) => {
+    if (booking.booking_status === 'cancelled') {
+      return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300">Cancelled</span>;
+    }
+    switch (booking.payment_status) {
       case 'completed':
-        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400">Completed</span>;
+        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400">Confirmed</span>;
       case 'pending':
         return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">Pending</span>;
       case 'failed':
         return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">Failed</span>;
       default:
-        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300">{status}</span>;
+        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300">{booking.payment_status}</span>;
+    }
+  };
+
+  const isUpcoming = (booking) => {
+    const checkIn = new Date(booking.check_in_date);
+    return checkIn >= new Date(new Date().toDateString());
+  };
+
+  const isRefundable = (booking) => booking.cancellation_policy !== 'non_refundable';
+  const canCancel = (booking) => booking.booking_status !== 'cancelled' && booking.payment_status !== 'failed' && isUpcoming(booking) && isRefundable(booking);
+
+  const handleCancel = async (bookingId) => {
+    setCancellingId(bookingId);
+    try {
+      const res = await apiServerClient.fetch(`/bookings/${bookingId}`, { method: 'DELETE' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Failed to cancel booking');
+
+      if (data.refund_status === 'full') {
+        toast.success('Booking cancelled. Full refund issued.', { description: `€${(data.refund_amount || 0).toFixed(2)} will be returned to your card.` });
+      } else if (data.refund_status === 'partial') {
+        toast.success('Booking cancelled. Partial refund issued.', { description: `€${(data.refund_amount || 0).toFixed(2)} will be returned to your card.` });
+      } else {
+        toast.success('Booking cancelled.', { description: 'This booking was non-refundable, so no refund was issued.' });
+      }
+
+      setConfirmingId(null);
+      fetchBookings();
+    } catch (error) {
+      console.error('Cancel booking error:', error);
+      toast.error('Could not cancel booking', { description: error.message });
+    } finally {
+      setCancellingId(null);
     }
   };
 
@@ -85,14 +125,40 @@ export default function GuestDashboard() {
                   <div className="space-y-2">
                     <div className="flex items-center gap-3">
                       <h3 className="text-xl font-semibold">{booking.accommodationType || booking.room_type}</h3>
-                      {getStatusBadge(booking.payment_status)}
+                      {getStatusBadge(booking)}
+                      {booking.booking_status !== 'cancelled' && !isRefundable(booking) && (
+                        <span className="text-xs text-muted-foreground">To change this booking, contact us at info@rayaboutique.eu</span>
+                      )}
                     </div>
-                    <div className="text-sm text-muted-foreground flex items-center gap-4">
-                      <span className="flex items-center gap-1"><Calendar className="w-4 h-4" /> {booking.check_in_date} to {booking.check_out_date}</span>
-                      <span className="flex items-center gap-1"><CreditCard className="w-4 h-4" /> ${booking.final_price?.toFixed(2)}</span>
+                    <div className="text-sm text-muted-foreground flex items-center gap-4 flex-wrap">
+                      <span className="flex items-center gap-1"><Calendar className="w-4 h-4" /> {booking.check_in_date?.slice(0,10)} to {booking.check_out_date?.slice(0,10)}</span>
+                      <span className="flex items-center gap-1"><CreditCard className="w-4 h-4" /> €{Number(booking.final_price || 0).toFixed(2)}</span>
+                      <span className={`flex items-center gap-1 ${booking.cancellation_policy === 'flexible' ? 'text-emerald-600' : 'text-amber-600'}`}>
+                        {booking.cancellation_policy === 'flexible' ? <ShieldCheck className="w-4 h-4" /> : <ShieldAlert className="w-4 h-4" />}
+                        {booking.cancellation_policy === 'flexible' ? 'Free cancellation up to 3 days before check-in' : 'Non-refundable rate'}
+                      </span>
                     </div>
+                    {booking.refund_status && booking.refund_status !== 'none' && (
+                      <p className="text-xs text-muted-foreground">Refund: {booking.refund_status} {booking.refund_amount ? `(€${Number(booking.refund_amount).toFixed(2)})` : ''}</p>
+                    )}
                   </div>
-                  <Button variant="secondary">View Details</Button>
+                  <div className="flex gap-2">
+                    {canCancel(booking) && (
+                      confirmingId === booking.id ? (
+                        <div className="flex gap-2 items-center">
+                          <span className="text-xs text-muted-foreground">Are you sure?</span>
+                          <Button size="sm" variant="destructive" disabled={cancellingId === booking.id} onClick={() => handleCancel(booking.id)}>
+                            {cancellingId === booking.id ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Yes, cancel'}
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => setConfirmingId(null)}>Back</Button>
+                        </div>
+                      ) : (
+                        <Button variant="outline" className="text-destructive" onClick={() => setConfirmingId(booking.id)}>
+                          <XCircle className="w-4 h-4 mr-1" /> Cancel Booking
+                        </Button>
+                      )
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

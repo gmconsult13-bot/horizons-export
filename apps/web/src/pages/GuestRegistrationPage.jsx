@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useGuestAuth } from '@/contexts/GuestAuthContext.jsx';
 import Header from '@/components/Header.jsx';
 import Footer from '@/components/Footer.jsx';
@@ -15,10 +16,12 @@ export default function GuestRegistrationPage() {
   const { register } = useGuestAuth();
 
   const [formData, setFormData] = useState({
+    name: '',
     email: '',
     phone: '',
     password: '',
     passwordConfirm: '',
+    marketingConsent: false,
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -26,6 +29,8 @@ export default function GuestRegistrationPage() {
 
   const validateForm = () => {
     const newErrors = {};
+
+    if (!formData.name || !formData.name.trim()) newErrors.name = 'Name is required';
 
     if (!formData.email) newErrors.email = 'Email is required';
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
@@ -137,6 +142,22 @@ export default function GuestRegistrationPage() {
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-2">
+              <Label htmlFor="name" className="text-foreground">Full Name</Label>
+              <Input
+                id="name"
+                name="name"
+                type="text"
+                placeholder="Maya Ivanova"
+                value={formData.name}
+                onChange={handleChange}
+                className={`text-foreground bg-background ${errors.name ? 'border-destructive' : ''}`}
+                disabled={isSubmitting}
+                required
+              />
+              {errors.name && <p className="text-xs text-destructive font-medium">{errors.name}</p>}
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="email" className="text-foreground">Email Address</Label>
               <Input
                 id="email"
@@ -198,6 +219,18 @@ export default function GuestRegistrationPage() {
                 required
               />
               {errors.passwordConfirm && <p className="text-xs text-destructive font-medium">{errors.passwordConfirm}</p>}
+            </div>
+
+            <div className="flex items-start gap-2 pt-2">
+              <Checkbox
+                id="marketingConsent"
+                checked={formData.marketingConsent}
+                onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, marketingConsent: Boolean(checked) }))}
+                disabled={isSubmitting}
+              />
+              <Label htmlFor="marketingConsent" className="text-sm text-muted-foreground font-normal leading-snug cursor-pointer">
+                I'd like to receive news, special offers and promotions from Raya Boutique by email. You can unsubscribe at any time.
+              </Label>
             </div>
 
             <Button

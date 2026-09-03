@@ -1,10 +1,15 @@
 import 'dotenv/config';
 import express from 'express';
+import Stripe from 'stripe';
 import pb from '../utils/pocketbaseClient.js';
 import logger from '../utils/logger.js';
-import { authMiddleware } from '../middleware/auth.js';
+import { authMiddleware, guestAuthMiddleware } from '../middleware/auth.js';
 
 const router = express.Router();
+
+const stripe = process.env.STRIPE_SECRET_KEY
+  ? new Stripe(process.env.STRIPE_SECRET_KEY)
+  : null;
 
 // GET /bookings/cleanup
 router.get('/cleanup', async (req, res) => {
@@ -139,38 +144,99 @@ Raya Boutique Team
   res.json({ success: true, message: 'Email sent' });
 });
 
-// DELETE /bookings/:bookingId
-router.delete('/:bookingId', authMiddleware, async (req, res) => {
+// DELETE /bookings/:bookingId — guest self-cancellation with refund handling
+//
+// Refund rules:
+//  - cancellation_policy "flexible"      -> cancel allowed, full automatic Stripe refund
+//  - cancellation_policy "non_refundable" -> cannot be cancelled online (contact the hotel)
+//
+// The booking record is NOT deleted: it is marked booking_status="cancelled"
+// so the guest keeps their history and can still access/print their invoice.
+router.delete('/:bookingId', guestAuthMiddleware, async (req, res) => {
   const { bookingId } = req.params;
-  const userId = req.user.id;
+  const guestId = req.user.id;
 
-  // Validate required fields
   if (!bookingId) {
     return res.status(400).json({ error: 'Booking ID is required' });
   }
 
-  // Find booking by ID
   const booking = await pb.collection('bookings').getOne(bookingId);
 
-  // Verify booking belongs to authenticated user
-  if (booking.guest_id !== userId) {
-    throw new Error('Unauthorized');
+  // Verify the booking belongs to the authenticated guest
+  if (booking.guest_id !== guestId) {
+    return res.status(403).json({ error: 'You can only cancel your own bookings' });
   }
 
-  // Parse check-in date and verify it's in the future
+  // Already cancelled
+  if (booking.booking_status === 'cancelled') {
+    return res.status(409).json({ error: 'This booking is already cancelled' });
+  }
+
+  // Check-in must still be in the future
   const checkInDate = new Date(booking.check_in_date);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
   if (checkInDate < today) {
-    throw new Error('Cannot cancel completed bookings');
+    return res.status(400).json({ error: 'Past or completed bookings cannot be cancelled' });
   }
 
-  // Delete booking
-  await pb.collection('bookings').delete(bookingId);
+  // Non-refundable bookings cannot be self-cancelled
+  if (booking.cancellation_policy === 'non_refundable') {
+    return res.status(403).json({
+      error:
+        'This booking was made under non-refundable conditions and cannot be cancelled online. Please contact info@rayaboutique.eu for assistance.',
+    });
+  }
 
-  logger.info(`Booking ${bookingId} cancelled by guest ${userId}`);
-  res.json({ success: true, message: 'Booking cancelled successfully' });
+  // --- Refundable booking: cancel + refund ---
+  let refundStatus = 'none';
+  let refundAmount = 0;
+
+  if (booking.payment_status === 'completed' && booking.paymentId) {
+    if (!stripe) {
+      logger.error(`STRIPE_SECRET_KEY missing; cannot refund booking ${bookingId}`);
+      return res.status(500).json({
+        error: 'Refund cannot be processed right now. Please contact info@rayaboutique.eu.',
+      });
+    }
+
+    try {
+      const refund = await stripe.refunds.create({
+        payment_intent: booking.paymentId,
+      });
+      refundStatus = 'full';
+      refundAmount = Number(booking.final_price || 0);
+      logger.info(
+        `Stripe refund ${refund.id} issued for booking ${bookingId}: EUR ${refundAmount.toFixed(2)}`,
+      );
+    } catch (refundError) {
+      logger.error(`Stripe refund failed for booking ${bookingId}: ${refundError?.message || refundError}`);
+      return res.status(502).json({
+        error: 'The refund could not be processed automatically. Our team has been notified — please contact info@rayaboutique.eu.',
+      });
+    }
+  }
+
+  await pb.collection('bookings').update(bookingId, {
+    booking_status: 'cancelled',
+    cancelled_at: new Date().toISOString(),
+    cancellation_reason: 'guest_self_cancellation',
+    refund_status: refundStatus,
+    refund_amount: refundAmount,
+  });
+
+  logger.info(
+    `Booking ${bookingId} cancelled by guest ${guestId} (refund: ${refundStatus}, EUR ${refundAmount.toFixed(2)})`,
+  );
+
+  res.json({
+    success: true,
+    message: 'Booking cancelled successfully',
+    refund_status: refundStatus,
+    refund_amount: refundAmount,
+    currency: 'EUR',
+  });
 });
 
 export default router;
