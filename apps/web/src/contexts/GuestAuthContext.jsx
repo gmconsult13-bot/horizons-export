@@ -67,10 +67,12 @@ export const GuestAuthProvider = ({ children }) => {
   };
 
   const register = async ({
+    name,
     email,
     password,
     passwordConfirm,
     phone,
+    marketing_consent,
   }) => {
     const normalizedEmail =
       email.trim().toLowerCase();
@@ -82,10 +84,12 @@ export const GuestAuthProvider = ({ children }) => {
       .collection('guests')
       .create(
         {
+          name,
           email: normalizedEmail,
           password,
           passwordConfirm,
           phone: normalizedPhone,
+          marketing_consent,
           emailVisibility: false,
         },
         {

@@ -212,11 +212,7 @@ export default function CheckoutPage() {
         );
       }
 
-      window.open(
-        responseData.url,
-        '_blank',
-        'noopener,noreferrer',
-      );
+      window.location.href = responseData.url;
     } catch (error) {
       console.error(
         'Checkout error:',

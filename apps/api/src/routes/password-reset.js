@@ -46,7 +46,6 @@ router.post('/request', async (req, res) => {
   res.status(200).json({ 
     success: true, 
     message: 'Password reset email sent',
-    token: token
   });
 });
 
@@ -174,7 +173,6 @@ router.post('/resend', async (req, res) => {
   res.status(200).json({ 
     success: true, 
     message: 'Password reset email sent',
-    token: token
   });
 });
 

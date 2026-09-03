@@ -36,18 +36,19 @@ onRecordAfterUpdateSuccess((e) => {
         }
         
         // Generate secure token: HMAC-SHA256(booking_id + secret)
-        const crypto = require('crypto');
         const secret = $app.settings().meta.REVIEW_TOKEN_SECRET || 'default-secret';
         const tokenData = bookingId + secret;
-        const token = crypto.createHmac('sha256', secret).update(tokenData).digest('hex');
+        const token = $security.hs256(tokenData, secret);
         
         // Build review link
-        const reviewLink = 'https://yourdomain.com/reviews/submit?booking_id=' + bookingId + '&token=' + token;
+        const reviewLink = 'https://rayaboutique.eu/reviews/submit?booking_id=' + bookingId + '&token=' + token;
         
+        const senderAddr = $app.settings().meta.senderAddress;
+
         // Send email
         const message = new MailerMessage({
           from: {
-            address: $app.settings().meta.senderAddress,
+            address: senderAddr,
             name: $app.settings().meta.senderName
           },
           to: [{ address: guestEmail }],
@@ -66,7 +67,7 @@ onRecordAfterUpdateSuccess((e) => {
                 '<p><strong>Rating Scale:</strong> 1 = Poor, 2 = Fair, 3 = Good, 4 = Very Good, 5 = Excellent, 6 = Outstanding</p>' +
                 '<p><a href="' + reviewLink + '" style="display: inline-block; padding: 12px 24px; background-color: #007bff; color: white; text-decoration: none; border-radius: 4px; font-weight: bold;">Submit Your Review</a></p>' +
                 '<p><strong>Deadline:</strong> Please submit your review within 7 days of checkout for the most accurate feedback.</p>' +
-                '<p>If you have any questions or concerns, please don\'t hesitate to contact us at <strong>contact@hotel.com</strong> or call <strong>+1-800-HOTEL-1</strong>.</p>' +
+                '<p>If you have any questions or concerns, please don\'t hesitate to contact us at <strong>' + senderAddr + '</strong> or call <strong>+1-800-HOTEL-1</strong>.</p>' +
                 '<p>Thank you for choosing us!</p>' +
                 '<p>Best regards,<br>The Hotel Management Team</p>'
         });

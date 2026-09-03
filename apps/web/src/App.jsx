@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Route, Routes, BrowserRouter as Router } from 'react-router-dom';
 import { AuthProvider } from '@/contexts/AuthContext.jsx';
@@ -60,6 +59,16 @@ import RoomAvailabilityPage from '@/pages/admin/RoomAvailabilityPage.jsx';
 import AdminReviewsPage from '@/pages/admin/AdminReviewsPage.jsx';
 import ReviewsAnalyticsPage from '@/pages/admin/ReviewsAnalyticsPage.jsx';
 import GuestDealsManagement from '@/pages/admin/GuestDealsManagement.jsx';
+
+// PMS Pages
+import PMSCalendar from '@/pages/admin/PMSCalendar.jsx';
+import PMSRoomScheme from '@/pages/admin/PMSRoomScheme.jsx';
+import PMSFrontDesk from '@/pages/admin/PMSFrontDesk.jsx';
+import PMSInvoices from '@/pages/admin/PMSInvoices.jsx';
+import PMSRestaurant from '@/pages/admin/PMSRestaurant.jsx';
+import PMSTourOperators from '@/pages/admin/PMSTourOperators.jsx';
+import PMSChannels from '@/pages/admin/PMSChannels.jsx';
+import PMSAnalytics from '@/pages/admin/PMSAnalytics.jsx';
 
 import { Toaster } from '@/components/ui/sonner';
 
@@ -128,6 +137,16 @@ function App() {
                 <Route path="/admin/reviews" element={<ProtectedAdminRoute><AdminReviewsPage /></ProtectedAdminRoute>} />
                 <Route path="/admin/reviews-analytics" element={<ProtectedAdminRoute><ReviewsAnalyticsPage /></ProtectedAdminRoute>} />
                 <Route path="/admin/deals" element={<ProtectedAdminRoute><GuestDealsManagement /></ProtectedAdminRoute>} />
+                
+                {/* PMS Routes */}
+                <Route path="/admin/pms/calendar" element={<ProtectedAdminRoute><PMSCalendar /></ProtectedAdminRoute>} />
+                <Route path="/admin/pms/room-scheme" element={<ProtectedAdminRoute><PMSRoomScheme /></ProtectedAdminRoute>} />
+                <Route path="/admin/pms/front-desk" element={<ProtectedAdminRoute><PMSFrontDesk /></ProtectedAdminRoute>} />
+                <Route path="/admin/pms/invoices" element={<ProtectedAdminRoute><PMSInvoices /></ProtectedAdminRoute>} />
+                <Route path="/admin/pms/restaurant" element={<ProtectedAdminRoute><PMSRestaurant /></ProtectedAdminRoute>} />
+                <Route path="/admin/pms/tour-operators" element={<ProtectedAdminRoute><PMSTourOperators /></ProtectedAdminRoute>} />
+                <Route path="/admin/pms/channels" element={<ProtectedAdminRoute><PMSChannels /></ProtectedAdminRoute>} />
+                <Route path="/admin/pms/analytics" element={<ProtectedAdminRoute><PMSAnalytics /></ProtectedAdminRoute>} />
                 
                 <Route path="*" element={<NotFound />} />
               </Routes>

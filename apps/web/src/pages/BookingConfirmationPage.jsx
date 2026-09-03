@@ -68,7 +68,7 @@ export default function BookingConfirmationPage() {
           payment_status: 'completed',
           paymentId: sessionId,
           stripe_session_id: sessionId,
-          guestId: currentGuest?.id || '',
+          guest_id: currentGuest?.id || '',
           terms_accepted: true
         }, { $autoCancel: false });
 
@@ -130,7 +130,7 @@ export default function BookingConfirmationPage() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Total Paid</span>
-                    <span className="font-medium text-primary">${bookingRecord.final_price.toFixed(2)}</span>
+                    <span className="font-medium text-primary">€{bookingRecord.final_price.toFixed(2)}</span>
                   </div>
                 </div>
               )}

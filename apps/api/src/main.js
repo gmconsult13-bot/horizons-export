@@ -35,9 +35,13 @@ process.on('SIGTERM', async () => {
 	process.exit();
 });
 
+const allowedOrigins = process.env.CORS_ORIGIN
+	? process.env.CORS_ORIGIN.split(',').map((o) => o.trim())
+	: '*';
+
 app.use(helmet());
 app.use(cors({
-	origin: process.env.CORS_ORIGIN,
+	origin: allowedOrigins,
 	credentials: true,
 }));
 app.use(morgan('combined'));

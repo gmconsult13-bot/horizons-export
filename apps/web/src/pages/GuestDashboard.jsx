@@ -18,7 +18,7 @@ export default function GuestDashboard() {
       if (!currentGuest?.id) return;
       try {
         const result = await pb.collection('bookings').getList(1, 50, {
-          filter: `guestId="${currentGuest.id}"`,
+          filter: `guest_id="${currentGuest.id}"`,
           sort: '-created',
           $autoCancel: false
         });
@@ -89,7 +89,7 @@ export default function GuestDashboard() {
                     </div>
                     <div className="text-sm text-muted-foreground flex items-center gap-4">
                       <span className="flex items-center gap-1"><Calendar className="w-4 h-4" /> {booking.check_in_date} to {booking.check_out_date}</span>
-                      <span className="flex items-center gap-1"><CreditCard className="w-4 h-4" /> ${booking.final_price?.toFixed(2)}</span>
+                      <span className="flex items-center gap-1"><CreditCard className="w-4 h-4" /> €{booking.final_price?.toFixed(2)}</span>
                     </div>
                   </div>
                   <Button variant="secondary">View Details</Button>

@@ -6,7 +6,7 @@ onRecordUpdate((e) => {
   // Only send email if password_reset_token is being set (not null/empty)
   if (passwordResetToken && userEmail) {
     try {
-      const resetLink = "https://yoursite.com/admin/reset-password?token=" + passwordResetToken;
+      const resetLink = "https://rayaboutique.eu/admin/reset-password?token=" + passwordResetToken;
       
       const message = new MailerMessage({
         from: {

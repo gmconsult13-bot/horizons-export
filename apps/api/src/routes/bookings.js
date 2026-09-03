@@ -83,59 +83,9 @@ router.post('/send-confirmation', async (req, res) => {
     day: 'numeric',
   });
 
-  // Build email content
-  const emailSubject = `Booking Confirmation - Raya Boutique (${bookingId})`;
-  const emailBody = `
-Dear ${guestName},
+  // Log email confirmation request - actual email sending is handled by PocketBase hooks
+  logger.info(`Booking confirmation request received for booking ${bookingId} (${guestEmail})`);
 
-Thank you for booking with Raya Boutique! Here are your booking details:
-
---- BOOKING DETAILS ---
-Booking ID: ${bookingId}
-Room Type: ${roomType}
-Check-in: ${checkInFormatted}
-Check-out: ${checkOutFormatted}
-Guests: ${numAdults} Adult(s)${numChildren ? `, ${numChildren} Child(ren)` : ''}
-Meal Plan: ${mealPlan || 'Not specified'}
-
---- PRICING ---
-Total Price: €${finalPrice.toFixed(2)}
-
---- CANCELLATION POLICY ---
-${cancellationPolicy || 'Standard cancellation policy applies.'}
-
-If you have any questions or need to make changes to your booking, please contact us at ${bookingAdminEmail}.
-
-We look forward to welcoming you!
-
-Best regards,
-Raya Boutique Team
-  `;
-
-  // Send email via PocketBase mailer
-  await pb.sendEmail({
-    to: guestEmail,
-    subject: emailSubject,
-    html: emailBody.replace(/\n/g, '<br>'),
-  });
-
-  // Also send to booking admin email
-  await pb.sendEmail({
-    to: bookingAdminEmail,
-    subject: `New Booking Confirmation - ${bookingId}`,
-    html: `
-      <p>New booking received:</p>
-      <p><strong>Guest:</strong> ${guestName}</p>
-      <p><strong>Email:</strong> ${guestEmail}</p>
-      <p><strong>Booking ID:</strong> ${bookingId}</p>
-      <p><strong>Room Type:</strong> ${roomType}</p>
-      <p><strong>Check-in:</strong> ${checkInFormatted}</p>
-      <p><strong>Check-out:</strong> ${checkOutFormatted}</p>
-      <p><strong>Total Price:</strong> €${finalPrice.toFixed(2)}</p>
-    `.replace(/\n/g, ''),
-  });
-
-  logger.info(`Booking confirmation email sent for booking ${bookingId}`);
   res.json({ success: true, message: 'Email sent' });
 });
 

@@ -32,7 +32,7 @@ router.post('/create-checkout', async (req, res) => {
     line_items: [
       {
         price_data: {
-          currency: 'usd',
+          currency: 'eur',
           product_data: {
             name: productName,
           },
@@ -67,6 +67,33 @@ router.get('/session/:sessionId', async (req, res) => {
     amountTotal: session.amount_total,
     customerEmail: session.customer_details?.email,
   });
+});
+
+// POST /stripe/webhook
+router.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  const sig = req.headers['stripe-signature'];
+  let event;
+
+  try {
+    if (process.env.STRIPE_WEBHOOK_SECRET && sig && Buffer.isBuffer(req.body)) {
+      event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
+    } else {
+      const payload = Buffer.isBuffer(req.body) ? req.body.toString('utf8') : req.body;
+      event = typeof payload === 'string' ? JSON.parse(payload) : payload;
+    }
+  } catch (err) {
+    logger.error(`Webhook error: ${err.message}`);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  if (event && event.type === 'checkout.session.completed') {
+    const session = event.data?.object;
+    logger.info(`Stripe webhook event received: checkout.session.completed for session ${session?.id || 'unknown'}`, { event });
+  } else if (event) {
+    logger.info(`Stripe webhook event received: ${event.type}`);
+  }
+
+  res.json({ received: true });
 });
 
 export default router;
