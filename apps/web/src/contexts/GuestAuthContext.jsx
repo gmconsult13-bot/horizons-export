@@ -13,7 +13,6 @@ export const GuestAuthProvider = ({ children }) => {
   const [currentGuest, setCurrentGuest] = useState(
     pb.authStore.record || pb.authStore.model || null,
   );
-
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -25,43 +24,29 @@ export const GuestAuthProvider = ({ children }) => {
     );
 
     setIsLoading(false);
-
     return unsubscribe;
   }, []);
 
   const login = async (email, password) => {
-    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedEmail = String(email || '').trim().toLowerCase();
 
     try {
       const authData = await pb
         .collection('guests')
-        .authWithPassword(
-          normalizedEmail,
-          password,
-          {
-            $autoCancel: false,
-          },
-        );
+        .authWithPassword(normalizedEmail, password, { $autoCancel: false });
 
       if (authData.record?.verified !== true) {
         pb.authStore.clear();
-
-        const error = new Error(
-          'Please verify your email address before logging in.',
-        );
-
+        const error = new Error('Please verify your email address before logging in.');
         error.code = 'EMAIL_NOT_VERIFIED';
-
         throw error;
       }
 
       return authData;
     } catch (error) {
-      if (error?.code === 'EMAIL_NOT_VERIFIED') {
-        throw error;
+      if (error?.code !== 'EMAIL_NOT_VERIFIED') {
+        pb.authStore.clear();
       }
-
-      pb.authStore.clear();
       throw error;
     }
   };
@@ -72,36 +57,29 @@ export const GuestAuthProvider = ({ children }) => {
     passwordConfirm,
     phone,
   }) => {
-    const normalizedEmail =
-      email.trim().toLowerCase();
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    const normalizedPhone = String(phone || '').trim();
 
-    const normalizedPhone =
-      phone.trim();
+    if (!normalizedEmail || !normalizedPhone || !password || !passwordConfirm) {
+      throw new Error('All registration fields are required.');
+    }
 
-    const record = await pb
-      .collection('guests')
-      .create(
-        {
-          email: normalizedEmail,
-          password,
-          passwordConfirm,
-          phone: normalizedPhone,
-          emailVisibility: false,
-        },
-        {
-          $autoCancel: false,
-        },
-      );
+    const record = await pb.collection('guests').create(
+      {
+        email: normalizedEmail,
+        password,
+        passwordConfirm,
+        phone: normalizedPhone,
+        emailVisibility: false,
+      },
+      { $autoCancel: false },
+    );
 
     try {
-      await pb
-        .collection('guests')
-        .requestVerification(
-          normalizedEmail,
-          {
-            $autoCancel: false,
-          },
-        );
+      await pb.collection('guests').requestVerification(
+        normalizedEmail,
+        { $autoCancel: false },
+      );
 
       return {
         record,
@@ -122,52 +100,30 @@ export const GuestAuthProvider = ({ children }) => {
   };
 
   const resendVerification = async (email) => {
-    const normalizedEmail =
-      email.trim().toLowerCase();
-
-    return pb
-      .collection('guests')
-      .requestVerification(
-        normalizedEmail,
-        {
-          $autoCancel: false,
-        },
-      );
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    return pb.collection('guests').requestVerification(
+      normalizedEmail,
+      { $autoCancel: false },
+    );
   };
 
-  const confirmEmailVerification = async (
-    token,
-  ) => {
+  const confirmEmailVerification = async (token) => {
     if (!token) {
-      throw new Error(
-        'The verification token is missing.',
-      );
+      throw new Error('The verification token is missing.');
     }
 
-    return pb
-      .collection('guests')
-      .confirmVerification(
-        token,
-        {
-          $autoCancel: false,
-        },
-      );
+    return pb.collection('guests').confirmVerification(
+      token,
+      { $autoCancel: false },
+    );
   };
 
-  const requestPasswordReset = async (
-    email,
-  ) => {
-    const normalizedEmail =
-      email.trim().toLowerCase();
-
-    return pb
-      .collection('guests')
-      .requestPasswordReset(
-        normalizedEmail,
-        {
-          $autoCancel: false,
-        },
-      );
+  const requestPasswordReset = async (email) => {
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    return pb.collection('guests').requestPasswordReset(
+      normalizedEmail,
+      { $autoCancel: false },
+    );
   };
 
   const confirmPasswordReset = async (
@@ -176,21 +132,15 @@ export const GuestAuthProvider = ({ children }) => {
     passwordConfirm,
   ) => {
     if (!token) {
-      throw new Error(
-        'The password-reset token is missing.',
-      );
+      throw new Error('The password-reset token is missing.');
     }
 
-    return pb
-      .collection('guests')
-      .confirmPasswordReset(
-        token,
-        password,
-        passwordConfirm,
-        {
-          $autoCancel: false,
-        },
-      );
+    return pb.collection('guests').confirmPasswordReset(
+      token,
+      password,
+      passwordConfirm,
+      { $autoCancel: false },
+    );
   };
 
   const logout = () => {
@@ -200,8 +150,7 @@ export const GuestAuthProvider = ({ children }) => {
 
   const isGuestAuthenticated =
     pb.authStore.isValid &&
-    currentGuest?.collectionName ===
-      'guests' &&
+    currentGuest?.collectionName === 'guests' &&
     currentGuest?.verified === true;
 
   return (
@@ -225,14 +174,10 @@ export const GuestAuthProvider = ({ children }) => {
 };
 
 export const useGuestAuth = () => {
-  const context = useContext(
-    GuestAuthContext,
-  );
+  const context = useContext(GuestAuthContext);
 
   if (!context) {
-    throw new Error(
-      'useGuestAuth must be used inside GuestAuthProvider',
-    );
+    throw new Error('useGuestAuth must be used inside GuestAuthProvider');
   }
 
   return context;

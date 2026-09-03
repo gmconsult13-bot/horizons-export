@@ -1,71 +1,35 @@
 /// <reference path="../pb_data/types.d.ts" />
-onRecordAfterUpdateSuccess((e) => {
-  // Only send email if password_reset_token was set
-  const resetToken = e.record.get("password_reset_token");
-  if (!resetToken) {
-    e.next();
-    return;
-  }
 
-  const guestEmail = e.record.get("email");
-  const guestName = e.record.get("name") || "Guest";
-  
-  // Construct the reset link with the correct domain
-  const resetLink = "https://rayaboutique.eu/reset-password?token=" + resetToken;
+// Customize PocketBase's native password-reset email and keep the native
+// signed token that confirmPasswordReset expects.
+onMailerRecordPasswordResetSend((e) => {
+  const token = e.meta.token;
+  const resetUrl =
+    'https://rayaboutique.eu/reset-password?token=' + encodeURIComponent(token);
 
-  // HTML email version
-  const htmlContent = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2>Password Reset Request</h2>
-      <p>Hello ${guestName},</p>
-      <p>We received a request to reset your password. Click the button below to create a new password:</p>
-      
-      <div style="text-align: center; margin: 30px 0;">
-        <a href="${resetLink}" style="background-color: #007bff; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">
-          Reset Password
-        </a>
+  e.message.subject = 'Reset your password - Raya Boutique';
+  e.message.html = `
+    <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#333;line-height:1.6">
+      <div style="text-align:center;padding:24px 0;border-bottom:2px solid #8b7355">
+        <h1 style="color:#8b7355;margin:0;font-size:28px">Raya Boutique</h1>
       </div>
-      
-      <p>Or copy and paste this link in your browser:</p>
-      <p><a href="${resetLink}">${resetLink}</a></p>
-      
-      <p>This link will expire in 24 hours.</p>
-      <p>If you didn't request a password reset, please ignore this email.</p>
-      
-      <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
-      <p style="color: #666; font-size: 12px;">Raya Boutique Hotel</p>
+      <div style="padding:30px 0">
+        <p>Hello,</p>
+        <p>We received a request to reset the password for your Raya Boutique account.</p>
+        <div style="text-align:center;margin:32px 0">
+          <a href="${resetUrl}" style="display:inline-block;background:#8b7355;color:#fff;padding:14px 32px;text-decoration:none;border-radius:4px;font-weight:bold">Reset Password</a>
+        </div>
+        <p style="font-size:13px;color:#666">If the button does not work, copy this address into your browser:</p>
+        <p style="font-size:13px;word-break:break-all"><a href="${resetUrl}" style="color:#8b7355">${resetUrl}</a></p>
+        <p>If you did not request a password reset, you can ignore this email.</p>
+      </div>
+      <div style="border-top:1px solid #ddd;padding-top:18px;text-align:center;font-size:12px;color:#777">Raya Boutique Hotel</div>
     </div>
   `;
+  e.message.text =
+    'Reset your Raya Boutique password:\n\n' +
+    resetUrl +
+    '\n\nIf you did not request this change, you can ignore this email.';
 
-  // Plain text email version
-  const plainTextContent = `
-Password Reset Request
-
-Hello ${guestName},
-
-We received a request to reset your password. Click the link below to create a new password:
-
-${resetLink}
-
-This link will expire in 24 hours.
-
-If you didn't request a password reset, please ignore this email.
-
----
-Raya Boutique Hotel
-  `;
-
-  const message = new MailerMessage({
-    from: {
-      address: $app.settings().meta.senderAddress,
-      name: $app.settings().meta.senderName
-    },
-    to: [{ address: guestEmail }],
-    subject: "Password Reset Request - Raya Boutique",
-    html: htmlContent,
-    text: plainTextContent
-  });
-
-  $app.newMailClient().send(message);
   e.next();
-}, "guests");
+}, 'guests');

@@ -126,6 +126,7 @@ router.post('/reset-password', async (req, res) => {
   // Update guest password and clear reset fields
   await pb.collection('guests').update(guest.id, {
     password: password,
+    passwordConfirm: password,
     password_reset_token: '',
     password_reset_expires_at: null,
   });

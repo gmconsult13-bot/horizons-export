@@ -7,7 +7,7 @@ import { RefreshCcw } from 'lucide-react';
 import Header from '@/components/Header.jsx';
 import Footer from '@/components/Footer.jsx';
 import RoomCard from '@/components/RoomCard.jsx';
-import pb from '@/lib/pocketbaseClient.js';
+import { fetchPublicRooms } from '@/services/publicRoomsService.js';
 
 export default function RoomsPage() {
   const [rooms, setRooms] = useState([]);
@@ -19,12 +19,8 @@ export default function RoomsPage() {
     setLoading(true);
     setError(false);
     try {
-      const result = await pb.collection('rooms').getList(1, 50, { 
-        sort: 'price',
-        $autoCancel: false 
-      });
-      
-      setRooms(result.items || []);
+      const result = await fetchPublicRooms();
+      setRooms(result.rooms);
     } catch (err) {
       console.error('Failed to fetch rooms:', err);
       setError(true);

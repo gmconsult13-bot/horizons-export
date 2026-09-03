@@ -5,7 +5,7 @@ onMailerSend((e) => {
         return e.next()
     }
 
-    const senderAddress = $os.getenv("BUILDER_MAILER_SENDER_ADDRESS");
+    const senderAddress = "info@rayaboutique.eu";
 
     const payload = {
         "subject": e.message.subject,

@@ -10,6 +10,7 @@ apps/pocketbase/pb_data/
 node_modules/
 dist/
 build/
+apps/web/public/llms.txt
 
 # Logs
 *.log

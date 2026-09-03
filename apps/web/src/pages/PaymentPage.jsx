@@ -13,7 +13,7 @@ export default function PaymentPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const bookingId = searchParams.get('bookingId');
-  
+
   const [booking, setBooking] = useState(null);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
@@ -26,13 +26,18 @@ export default function PaymentPage() {
 
     const fetchBooking = async () => {
       try {
-        const record = await pb.collection('bookings').getOne(bookingId, { $autoCancel: false });
-        if (record.payment_status === 'completed') {
-          navigate(`/success?session_id=${record.stripe_session_id}`);
+        const record = await pb.collection('bookings').getOne(bookingId, {
+          $autoCancel: false,
+        });
+
+        if (record.payment_status === 'completed' && record.stripe_session_id) {
+          navigate(`/success?session_id=${encodeURIComponent(record.stripe_session_id)}`);
           return;
         }
+
         setBooking(record);
       } catch (err) {
+        console.error('Unable to load booking for payment:', err);
         toast.error('Booking not found');
         navigate('/');
       } finally {
@@ -44,30 +49,30 @@ export default function PaymentPage() {
   }, [bookingId, navigate]);
 
   const handlePayment = async () => {
+    if (!booking?.id) return;
+
     setProcessing(true);
     try {
       const response = await apiServerClient.fetch('/stripe/create-checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          bookingId: booking.id,
-          roomType: booking.room_type,
-          checkInDate: booking.check_in_date,
-          checkOutDate: booking.check_out_date,
-          finalPrice: booking.final_price,
-          guestEmail: booking.guest_email,
-          guestName: booking.guest_name
-        })
+        body: JSON.stringify({ bookingId: booking.id }),
       });
 
-      if (!response.ok) {
-        throw new Error('Payment initialization failed');
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok || !data.url) {
+        throw new Error(data.error || 'Payment initialization failed');
       }
 
-      const data = await response.json();
-      window.open(data.url, '_blank');
+      // Keep the payment in the same browser tab so Stripe's success/cancel
+      // redirects return to the same booking flow reliably.
+      window.location.assign(data.url);
     } catch (err) {
-      toast.error('Failed to start payment. Please try again.');
+      console.error('Unable to start Stripe checkout:', err);
+      toast.error('Failed to start payment.', {
+        description: err.message || 'Please try again.',
+      });
       setProcessing(false);
     }
   };
@@ -82,6 +87,8 @@ export default function PaymentPage() {
 
   if (!booking) return null;
 
+  const totalPrice = Number(booking.final_price || 0);
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Helmet>
@@ -92,8 +99,10 @@ export default function PaymentPage() {
       <main className="flex-grow flex items-center justify-center py-12">
         <div className="max-w-xl w-full px-4">
           <div className="bg-card border border-border p-8 rounded-2xl shadow-lg">
-            <h1 className="text-3xl font-bold mb-8 text-center text-foreground font-serif">Finalize Your Booking</h1>
-            
+            <h1 className="text-3xl font-bold mb-8 text-center text-foreground font-serif">
+              Finalize Your Booking
+            </h1>
+
             <div className="space-y-4 mb-8 text-foreground/80 bg-muted/30 p-6 rounded-xl">
               <div className="flex justify-between border-b border-border/50 pb-3">
                 <span className="font-medium">Room</span>
@@ -101,15 +110,20 @@ export default function PaymentPage() {
               </div>
               <div className="flex justify-between border-b border-border/50 pb-3">
                 <span className="font-medium">Dates</span>
-                <span>{new Date(booking.check_in_date).toLocaleDateString()} - {new Date(booking.check_out_date).toLocaleDateString()}</span>
+                <span>
+                  {new Date(booking.check_in_date).toLocaleDateString()} -{' '}
+                  {new Date(booking.check_out_date).toLocaleDateString()}
+                </span>
               </div>
               <div className="flex justify-between border-b border-border/50 pb-3">
                 <span className="font-medium">Guests</span>
-                <span>{booking.num_adults} Adults, {booking.num_children} Children</span>
+                <span>
+                  {booking.num_adults} Adults, {booking.num_children} Children
+                </span>
               </div>
               <div className="flex justify-between pt-2">
                 <span className="font-bold text-lg text-foreground">Total Due</span>
-                <span className="font-bold text-lg text-primary">€{booking.final_price.toFixed(2)}</span>
+                <span className="font-bold text-lg text-primary">€{totalPrice.toFixed(2)}</span>
               </div>
             </div>
 
@@ -118,13 +132,15 @@ export default function PaymentPage() {
               <p>Your payment is secure and encrypted via Stripe.</p>
             </div>
 
-            <Button 
-              onClick={handlePayment} 
-              disabled={processing}
+            <Button
+              onClick={handlePayment}
+              disabled={processing || totalPrice <= 0}
               className="w-full bg-secondary hover:bg-secondary/90 text-secondary-foreground h-14 text-lg rounded-none uppercase tracking-widest"
             >
               {processing ? (
-                <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Processing...</>
+                <>
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Processing...
+                </>
               ) : (
                 'Pay Securely with Stripe'
               )}

@@ -1,11 +1,4 @@
-import React, {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useState,
-} from 'react';
-
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import apiServerClient from '@/lib/apiServerClient.js';
 import pb from '@/lib/pocketbaseClient.js';
 
@@ -13,13 +6,9 @@ const AdminAuthContext = createContext(null);
 
 export const useAdminAuth = () => {
   const context = useContext(AdminAuthContext);
-
   if (!context) {
-    throw new Error(
-      'useAdminAuth must be used within an AdminAuthProvider'
-    );
+    throw new Error('useAdminAuth must be used within an AdminAuthProvider');
   }
-
   return context;
 };
 
@@ -28,167 +17,98 @@ export const AdminAuthProvider = ({ children }) => {
   const [authToken, setAuthToken] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
+  const inactivityTimer = useRef(null);
 
-  /*
-   * Restore the admin session when the application starts.
-   */
-  useEffect(() => {
-    console.log('[AdminAuthContext] Initializing from localStorage...');
-
-    const storedToken = localStorage.getItem('adminAuthToken');
-    const storedUserString = localStorage.getItem('adminUser');
-
-    if (!storedToken || !storedUserString) {
-      console.log(
-        '[AdminAuthContext] No valid session found in localStorage.'
-      );
-
-      pb.authStore.clear();
-      setIsInitialized(true);
-      return;
-    }
-
-    try {
-      const storedUser = JSON.parse(storedUserString);
-
-      /*
-       * Synchronize the token returned by the API with the PocketBase client.
-       * This allows adminSaveUtils.js to use pb.authStore.
-       */
-      pb.authStore.save(storedToken, storedUser);
-
-      setAuthToken(storedToken);
-      setCurrentUser(storedUser);
-      setIsAuthenticated(true);
-
-      console.log(
-        '[AdminAuthContext] Session restored for user:',
-        storedUser.email
-      );
-    } catch (error) {
-      console.error(
-        '[AdminAuthContext] Failed to restore the stored session:',
-        error
-      );
-
-      localStorage.removeItem('adminAuthToken');
-      localStorage.removeItem('adminUser');
-      pb.authStore.clear();
-
-      setAuthToken(null);
-      setCurrentUser(null);
-      setIsAuthenticated(false);
-    } finally {
-      setIsInitialized(true);
-    }
-  }, []);
-
-  /*
-   * Log in through the API server.
-   */
-  const login = async (email, password) => {
-    console.log(
-      '[AdminAuthContext] Login attempt started for:',
-      email
-    );
-
-    const response = await apiServerClient.fetch('/admin-auth/login', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        email,
-        password,
-      }),
-    });
-
-    /*
-     * Read the response safely because some server errors may return
-     * an empty or non-JSON response.
-     */
-    const responseText = await response.text();
-
-    let data = {};
-
-    if (responseText) {
-      try {
-        data = JSON.parse(responseText);
-      } catch (error) {
-        console.error(
-          '[AdminAuthContext] Invalid API response:',
-          responseText
-        );
-
-        throw new Error(
-          `The server returned an invalid response. Status: ${response.status}`
-        );
-      }
-    }
-
-    if (!response.ok) {
-      const errorMessage =
-        data.error ||
-        data.message ||
-        `Login failed. Server status: ${response.status}`;
-
-      throw new Error(errorMessage);
-    }
-
-    if (!data.token || !data.user) {
-      throw new Error(
-        'Invalid login response: token or user information is missing.'
-      );
-    }
-
-    /*
-     * Save the API session.
-     */
-    localStorage.setItem('adminAuthToken', data.token);
-    localStorage.setItem('adminUser', JSON.stringify(data.user));
-
-    /*
-     * Synchronize the same token with the PocketBase SDK.
-     */
-    pb.authStore.save(data.token, data.user);
-
-    setAuthToken(data.token);
-    setCurrentUser(data.user);
-    setIsAuthenticated(true);
-
-    console.log(
-      '[AdminAuthContext] Login successful for:',
-      data.user.email
-    );
-
-    return data.user;
-  };
-
-  /*
-   * Clear both the API session and the PocketBase SDK session.
-   */
-  const logout = useCallback(() => {
-    console.log('[AdminAuthContext] Logging out...');
-
+  const clearSession = useCallback(() => {
+    if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
+    const hadAdminSession = Boolean(localStorage.getItem('adminAuthToken')) ||
+      pb.authStore.model?.role === 'admin' ||
+      pb.authStore.model?.is_admin === true;
     localStorage.removeItem('adminAuthToken');
     localStorage.removeItem('adminUser');
-
-    pb.authStore.clear();
-
+    if (hadAdminSession) pb.authStore.clear();
     setAuthToken(null);
     setCurrentUser(null);
     setIsAuthenticated(false);
-
-    console.log('[AdminAuthContext] Logout completed.');
   }, []);
+
+  // An administrator must explicitly sign in after every reload/new visit.
+  useEffect(() => {
+    clearSession();
+    setIsInitialized(true);
+  }, [clearSession]);
+
+  const login = async (email, password) => {
+    console.log('[AdminAuthContext] 1. login() called for email:', email);
+    console.log('[AdminAuthContext] 2. Preparing to send POST request to /admin-auth/login');
+    
+    try {
+      const response = await apiServerClient.fetch('/admin-auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+
+      console.log('[AdminAuthContext] 3. Response received, status:', response.status);
+      const data = await response.json();
+      console.log('[AdminAuthContext] 4. Parsed response body:', data);
+
+      if (!response.ok) {
+        const errorMessage = data.error || data.message || 'Login failed';
+        console.error('[AdminAuthContext] 5. Login failed with error:', errorMessage);
+        throw new Error(errorMessage);
+      }
+
+      if (data.token && data.user) {
+        console.log('[AdminAuthContext] 5. Login successful, storing token in localStorage');
+        localStorage.setItem('adminAuthToken', data.token);
+        localStorage.setItem('adminUser', JSON.stringify(data.user));
+        pb.authStore.save(data.token, data.user);
+        
+        setAuthToken(data.token);
+        setCurrentUser(data.user);
+        setIsAuthenticated(true);
+        
+        console.log('[AdminAuthContext] 6. State updated, returning user object');
+        return data.user;
+      } else {
+        throw new Error('Invalid response format: missing token or user');
+      }
+    } catch (error) {
+      console.error('[AdminAuthContext] Error during login flow:', error);
+      throw error;
+    }
+  };
+
+  const logout = useCallback(() => clearSession(), [clearSession]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return undefined;
+    const resetTimer = () => {
+      if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
+      inactivityTimer.current = setTimeout(clearSession, 40_000);
+    };
+    const events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'];
+    events.forEach((event) => window.addEventListener(event, resetTimer, { passive: true }));
+    resetTimer();
+    return () => {
+      events.forEach((event) => window.removeEventListener(event, resetTimer));
+      if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
+    };
+  }, [isAuthenticated, clearSession]);
 
   const value = {
     currentUser,
+    adminUser: currentUser,
     authToken,
     isAuthenticated,
+    isAdminAuthenticated: isAuthenticated,
     isInitialized,
+    loading: !isInitialized,
     login,
+    adminLogin: login,
     logout,
+    adminLogout: logout
   };
 
   return (

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import pb from '@/lib/pocketbaseClient';
+import { fetchPublicRooms } from '@/services/publicRoomsService.js';
 
 export function useRooms() {
   const [rooms, setRooms] = useState([]);
@@ -11,10 +11,7 @@ export function useRooms() {
       try {
         setLoading(true);
         setError(null);
-        const records = await pb.collection('rooms').getFullList({
-          sort: 'price',
-          $autoCancel: false
-        });
+        const { rooms: records } = await fetchPublicRooms();
         // Filter out Apartment and Presidential Suite room types
         const filteredRecords = records.filter(
           room => !room.name?.toLowerCase().includes('apartment') &&
