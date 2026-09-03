@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { Link } from 'react-router-dom';
-import { Calendar, CreditCard, Loader2, XCircle, ShieldCheck, ShieldAlert } from 'lucide-react';
+import { Calendar, CreditCard, Loader2, XCircle, ShieldCheck, ShieldAlert, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import Header from '@/components/Header.jsx';
@@ -16,6 +16,25 @@ export default function GuestDashboard() {
   const [loading, setLoading] = useState(true);
   const [cancellingId, setCancellingId] = useState(null);
   const [confirmingId, setConfirmingId] = useState(null);
+  const [invoiceByBooking, setInvoiceByBooking] = useState({});
+
+  const fetchInvoices = async (bookingIds) => {
+    if (!bookingIds.length) return;
+    try {
+      const filter = bookingIds.map((id) => `booking="${id}"`).join(' || ');
+      const result = await pb.collection('invoices').getList(1, 50, {
+        filter,
+        $autoCancel: false,
+      });
+      const map = {};
+      result.items.forEach((inv) => {
+        if (inv.booking) map[typeof inv.booking === 'object' ? inv.booking.id : inv.booking] = inv.id;
+      });
+      setInvoiceByBooking(map);
+    } catch (error) {
+      console.error('Failed to fetch invoices:', error);
+    }
+  };
 
   const fetchBookings = async () => {
     if (!currentGuest?.id) return;
@@ -36,6 +55,12 @@ export default function GuestDashboard() {
   useEffect(() => {
     fetchBookings();
   }, [currentGuest]);
+
+  useEffect(() => {
+    if (bookings.length > 0) {
+      fetchInvoices(bookings.map((b) => b.id));
+    }
+  }, [bookings]);
 
   const getStatusBadge = (booking) => {
     if (booking.booking_status === 'cancelled') {
@@ -59,6 +84,16 @@ export default function GuestDashboard() {
   };
 
   const isRefundable = (booking) => booking.cancellation_policy !== 'non_refundable';
+
+  // Paid bookings show their invoice for 3 months after the stay.
+  const showInvoice = (booking) =>
+    booking.payment_status === 'completed' && invoiceByBooking[booking.id] !== undefined;
+
+  const isInvoicePrintable = (booking) => {
+    const end = new Date(booking.check_out_date);
+    end.setMonth(end.getMonth() + 3);
+    return new Date() <= end;
+  };
   const canCancel = (booking) => booking.booking_status !== 'cancelled' && booking.payment_status !== 'failed' && isUpcoming(booking) && isRefundable(booking);
 
   const handleCancel = async (bookingId) => {
@@ -157,6 +192,20 @@ export default function GuestDashboard() {
                           <XCircle className="w-4 h-4 mr-1" /> Cancel Booking
                         </Button>
                       )
+                    )}
+                    {showInvoice(booking) && (
+                      <Button
+                        asChild={isInvoicePrintable(booking)}
+                        variant="outline"
+                        disabled={!isInvoicePrintable(booking)}
+                        onClick={!isInvoicePrintable(booking) ? () => toast.info('The printable period for this invoice has expired. Contact info@rayaboutique.eu for a copy.') : undefined}
+                      >
+                        {isInvoicePrintable(booking) ? (
+                          <Link to={`/invoice/${invoiceByBooking[booking.id]}`}><FileText className="w-4 h-4 mr-1" /> Фактура</Link>
+                        ) : (
+                          <><FileText className="w-4 h-4 mr-1" /> Фактура</>
+                        )}
+                      </Button>
                     )}
                   </div>
                 </div>

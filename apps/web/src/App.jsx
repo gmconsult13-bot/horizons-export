@@ -34,6 +34,7 @@ import BookingReviewPage from '@/pages/BookingReviewPage.jsx';
 import CheckoutPage from '@/pages/CheckoutPage.jsx';
 import BookingConfirmationPage from '@/pages/BookingConfirmationPage.jsx';
 import GuestDashboard from '@/pages/GuestDashboard.jsx';
+import InvoicePage from '@/pages/InvoicePage.jsx';
 import GuestAccountPage from '@/pages/GuestAccountPage.jsx';
 import GuestProfilePage from '@/pages/GuestProfilePage.jsx';
 import PaymentPage from '@/pages/PaymentPage.jsx';
@@ -106,6 +107,7 @@ function App() {
                 <Route path="/booking/checkout" element={<ProtectedGuestRoute><CheckoutPage /></ProtectedGuestRoute>} />
                 <Route path="/booking/confirmation" element={<ProtectedGuestRoute><BookingConfirmationPage /></ProtectedGuestRoute>} />
                 <Route path="/guest/bookings" element={<ProtectedGuestRoute><GuestDashboard /></ProtectedGuestRoute>} />
+                <Route path="/invoice/:id" element={<ProtectedGuestRoute><InvoicePage /></ProtectedGuestRoute>} />
                 
                 {/* Legacy guest routes preserved */}
                 <Route path="/payment" element={<ProtectedGuestRoute><PaymentPage /></ProtectedGuestRoute>} />
