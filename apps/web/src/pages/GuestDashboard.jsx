@@ -99,7 +99,13 @@ export default function GuestDashboard() {
   const handleCancel = async (bookingId) => {
     setCancellingId(bookingId);
     try {
-      const res = await apiServerClient.fetch(`/bookings/${bookingId}`, { method: 'DELETE' });
+      // The cancel endpoint authenticates against the 'guests' collection,
+      // so we must explicitly send the guest's PocketBase token —
+      // apiServerClient only auto-attaches admin tokens.
+      const res = await apiServerClient.fetch(`/bookings/${bookingId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${pb.authStore.token}` },
+      });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Failed to cancel booking');
 

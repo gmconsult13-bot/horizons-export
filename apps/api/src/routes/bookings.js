@@ -3,7 +3,7 @@ import express from 'express';
 import Stripe from 'stripe';
 import pb from '../utils/pocketbaseClient.js';
 import logger from '../utils/logger.js';
-import { authMiddleware, guestAuthMiddleware } from '../middleware/auth.js';
+import { authMiddleware, guestAuthMiddleware, requireAdmin } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -11,8 +11,9 @@ const stripe = process.env.STRIPE_SECRET_KEY
   ? new Stripe(process.env.STRIPE_SECRET_KEY)
   : null;
 
-// GET /bookings/cleanup
-router.get('/cleanup', async (req, res) => {
+// GET /bookings/cleanup — admin only. Deletes stale pending bookings
+// older than 24 hours that were never paid.
+router.get('/cleanup', authMiddleware, requireAdmin, async (req, res) => {
   // Calculate timestamp for 24 hours ago
   const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const now = new Date().toISOString();
