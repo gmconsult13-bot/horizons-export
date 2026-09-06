@@ -8,7 +8,7 @@ onRecordAfterCreateSuccess((e) => {
 
   const message = new MailerMessage({
     from: {
-      address: $app.settings().meta.senderAddress,
+      address: "booking@rayaboutique.eu",
       name: $app.settings().meta.senderName
     },
     to: recipients,

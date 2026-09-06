@@ -43,7 +43,7 @@ onRecordAfterUpdateSuccess((e) => {
         // Build review link
         const reviewLink = 'https://rayaboutique.eu/reviews/submit?booking_id=' + bookingId + '&token=' + token;
         
-        const senderAddr = $app.settings().meta.senderAddress;
+        const senderAddr = 'booking@rayaboutique.eu';
 
         // Send email
         const message = new MailerMessage({

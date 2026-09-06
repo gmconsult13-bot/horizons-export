@@ -5,7 +5,17 @@ onMailerSend((e) => {
         return e.next()
     }
 
-    const senderAddress = $os.getenv("BUILDER_MAILER_SENDER_ADDRESS");
+    // Default sender for all system emails (auth, verification, etc.)
+    const defaultSender = $os.getenv("BUILDER_MAILER_SENDER_ADDRESS");
+
+    // If a hook explicitly set a custom "from" address (e.g. booking@rayaboutique.eu
+    // for booking-related emails), respect it. Hooks that did not override the
+    // sender still carry the global meta senderAddress, which falls back to the default.
+    const msgFrom = e.message.from?.address;
+    const metaSender = e.app.settings().meta.senderAddress;
+    const senderAddress = (msgFrom && metaSender && msgFrom !== metaSender)
+        ? msgFrom
+        : defaultSender;
 
     const payload = {
         "subject": e.message.subject,
@@ -32,7 +42,7 @@ onMailerSend((e) => {
         },
         body: JSON.stringify(payload)
     });
-    
+
     if (response.statusCode !== 200) {
         $app.logger().error("Failed to send email", "error", response.json);
 
