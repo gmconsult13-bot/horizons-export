@@ -1,4 +1,7 @@
-/// <reference path="../pb_data/types.d.ts" />
+/// <reference path="../pb_data/types.d.ts" -*-
+// Fixes (2026-09-06 live testing): $app.dao() no longer exists in PocketBase
+// 0.38 — this cron previously crashed on every run. Converted to the $app.* API.
+// Also wraps the job in try/catch so a cron failure never crashes the server.
 onBootstrap((e) => {
   // Register a cron job that runs every 30 minutes
   $app.cron().add("cleanup_bookings", "*/30 * * * *", () => {
@@ -9,13 +12,13 @@ onBootstrap((e) => {
 
     try {
       // Query bookings where created_at is more than 24 hours ago AND check_in_date is in the future
-      const bookingsCollection = $app.dao().findCollectionByNameOrId("bookings");
-      const records = $app.dao().findRecordsByExpr(
-        bookingsCollection,
-        $dbx.exp("created_at < {:createdBefore} AND check_in_date > {:today}", {
-          "createdBefore": twentyFourHoursAgoISO,
-          "today": todayISO
-        })
+      const records = $app.findRecordsByFilter(
+        "bookings",
+        "created_at < {:createdBefore} && check_in_date > {:today}",
+        "",
+        0,
+        0,
+        { createdBefore: twentyFourHoursAgoISO, today: todayISO }
       );
 
       let deletedCount = 0;
@@ -24,7 +27,7 @@ onBootstrap((e) => {
       // Delete each matching booking
       for (const record of records) {
         try {
-          $app.dao().delete(record);
+          $app.delete(record);
           deletedCount++;
           deletedDetails.push({
             id: record.id,
@@ -34,24 +37,24 @@ onBootstrap((e) => {
             created_at: record.get("created_at")
           });
         } catch (deleteError) {
-          $app.logger().error("Failed to delete booking " + record.id, {
-            "error": deleteError.message
-          });
+          $app.logger().error("Failed to delete booking " + record.id, "error", "" + deleteError);
         }
       }
 
       // Log the results
-      $app.logger().info("Booking cleanup completed", {
-        "deleted_count": deletedCount,
-        "execution_time": new Date().toISOString(),
-        "deleted_bookings": deletedDetails
-      });
+      $app.logger().info(
+        "Booking cleanup completed",
+        "deleted_count", deletedCount,
+        "execution_time", new Date().toISOString(),
+        "deleted_bookings", deletedDetails
+      );
 
     } catch (error) {
-      $app.logger().error("Booking cleanup cron job failed", {
-        "error": error.message,
-        "execution_time": new Date().toISOString()
-      });
+      $app.logger().error(
+        "Booking cleanup cron job failed",
+        "error", "" + error,
+        "execution_time", new Date().toISOString()
+      );
     }
   });
 

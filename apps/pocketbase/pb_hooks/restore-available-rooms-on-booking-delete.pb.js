@@ -1,40 +1,45 @@
 /// <reference path="../pb_data/types.d.ts" />
+// Fixes (2026-09-06 live testing): mirrors update-available-rooms-on-booking.pb.js
+//  - Look the room up by NAME (room_type holds the room name, not an id).
+//  - One booking = one room (previously it restored number_of_guests).
+//  - Uses the PocketBase 0.38 API ($app.* — $app.dao() was removed).
+//  - Never throw from the delete flow — the record is already gone.
 onRecordAfterDeleteSuccess((e) => {
   const roomType = e.record.get("room_type");
-  const numberOfGuests = e.record.get("number_of_guests");
-  
-  console.log(`[BOOKING DELETED] Booking ID: ${e.record.id}, Room Type: ${roomType}, Guests: ${numberOfGuests}`);
-  
+
   try {
-    // Fetch the room record
-    const room = $app.dao().findRecordById("rooms", roomType);
-    
-    if (!room) {
-      console.log(`[ERROR] Room type '${roomType}' not found`);
-      throw new BadRequestError(`Room type '${roomType}' not found`);
-    }
-    
+    const room = $app.findFirstRecordByFilter(
+      "rooms",
+      "name = {:name}",
+      { name: roomType }
+    );
+
     const currentAvailable = room.get("available_rooms");
     const totalRooms = room.get("total_rooms");
-    let newAvailable = currentAvailable + numberOfGuests;
-    
-    console.log(`[ROOM RESTORE] Room: ${roomType}, Current Available: ${currentAvailable}, Guests Returning: ${numberOfGuests}, Calculated Available: ${newAvailable}`);
-    
+    let newAvailable = currentAvailable + 1;
+
     // Cap at total_rooms to prevent overshooting
     if (newAvailable > totalRooms) {
-      console.log(`[CAP APPLIED] Available rooms (${newAvailable}) exceeds total (${totalRooms}), capping at ${totalRooms}`);
       newAvailable = totalRooms;
     }
-    
-    // Update room availability
+
     room.set("available_rooms", newAvailable);
-    $app.dao().saveRecord(room);
-    
-    console.log(`[SUCCESS] Room '${roomType}' availability restored to ${newAvailable}`);
-  } catch (error) {
-    console.log(`[EXCEPTION] Error restoring room availability: ${error.message}`);
-    throw error;
+    $app.save(room);
+
+    $app.logger().info(
+      "Room availability restored after booking deletion",
+      "room", roomType,
+      "available", newAvailable,
+      "booking", e.record.id
+    );
+  } catch (err) {
+    $app.logger().error(
+      "Failed to restore room availability after booking deletion",
+      "error", "" + err,
+      "room", roomType,
+      "booking", e.record.id
+    );
   }
-  
+
   e.next();
 }, "bookings");

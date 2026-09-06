@@ -6,7 +6,7 @@ migrate((app) => {
     { name: "cancellation_policy", field: new TextField({ name: "cancellation_policy", required: false }), type: "text" },
     { name: "invoice_number", field: new TextField({ name: "invoice_number", required: false }), type: "text" },
     { name: "invoice_issued", field: new BoolField({ name: "invoice_issued", required: false }), type: "bool" },
-    { name: "invoice_data", field: new JsonField({ name: "invoice_data", required: false }), type: "json" },
+    { name: "invoice_data", field: new JSONField({ name: "invoice_data", required: false }), type: "json" },
     { name: "refund_status", field: new TextField({ name: "refund_status", required: false }), type: "text" },
     { name: "refund_amount", field: new NumberField({ name: "refund_amount", required: false }), type: "number" },
     { name: "payment_method", field: new TextField({ name: "payment_method", required: false }), type: "text" }
